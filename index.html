@@ -194,7 +194,9 @@ input, button, select, textarea {
                         <div class="col-md-4"><label>Kode Lembaga</label><input class="form-control" id="inpKodeSekolah" placeholder="loading..." onkeyup="updatePreview()" readonly style="background-color: #e9ecef;"></div>
                      </div>
                      <div class="preview-box" id="previewNomor">autoload...</div><input type="hidden" name="nomorFull" id="nomorFull">
-                     <div class="row mb-3"><div class="col-md-6"><label>Tempat Titimangsa</label><input name="tempatTitimangsa" class="form-control" placeholder="Contoh: Bungo" required></div><div class="col-md-6"><label>Tanggal Surat</label><input type="date" class="form-control" id="inpTglSurat" onchange="updateTanggalSurat()" required><input type="hidden" name="tanggalSuratFull" id="tanggalSuratFull"></div></div>
+                     <div class="row mb-3">
+                      <div class="col-md-6"><label>Tanggal Surat</label><input type="date" class="form-control" id="inpTglSurat" onchange="updateTanggalSurat()" required><input type="hidden" name="tanggalSuratFull" id="tanggalSuratFull"></div>
+                        </div>
                  
                      <h6 class="text-secondary border-bottom pb-2 mt-4">2. Isi Surat</h6>
                      <div id="box-umum" class="form-box">
@@ -302,6 +304,12 @@ input, button, select, textarea {
                         <div class="col-md-3"><label>NIP</label><input name="ttdNip" class="form-control" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required></div>
                         <div class="col-md-3"><label>Tanggal TTD</label><input type="date" class="form-control" id="inpTglSaja" onchange="updateTanggalSaja()" required><input type="hidden" name="tanggalSaja" id="valTglSaja"></div>
                      </div>
+                      <div class="mb-4 hide" id="box-tembusan">
+                       <label>Tembusan</label>
+                       <textarea name="tembusan" class="form-control" rows="3" placeholder="Tembusan :&#10;1. .................&#10;2. ................."></textarea>
+                         <div class="form-text text-info small"><i class="fas fa-info-circle"></i> Kosongkan jika tidak memerlukan tembusan.</div>
+                        </div>
+
                      <button type="submit" id="btnGen" class="btn btn-success w-100 py-3 fw-bold shadow-sm"><span>GENERATE DOKUMEN</span><span class="spinner-border spinner-border-sm hide" role="status"></span></button>
                  </form>
                  <div id="hasilGenerate" class="mt-4 hide text-center p-4 bg-light border border-success rounded">
@@ -750,13 +758,24 @@ input, button, select, textarea {
 
   /* --- GENERATOR SURAT --- */
   function gantiFormSurat() { 
-    const t = $('#pilihJenisSurat option:selected').text().toLowerCase() || ""; 
-    $('.form-box').addClass('hide').find('input,textarea,select').prop('disabled', true); 
-    let aid = '#box-umum'; 
-    if (t.includes('melaksanakan tugas') || t.includes('spmt')) { aid = '#box-spmt'; } else if (t.includes('keterangan siswa') || t.includes('siswa')) { aid = '#box-sis'; } else if (t.includes('tugas') || t.includes('spt')) { aid = '#box-spt'; } else if (t.includes('sk')) { aid = '#box-sk'; } else if (t.includes('perjalanan')) { aid = '#box-sppd'; } else if (t.includes('surat izin') || t.includes('izin')) { aid = '#box-izin'; } else if (t.includes('keterangan')) { aid = '#box-suket'; } else if (t.includes('nota')) { aid = '#box-nota'; } else if (t.includes('pengantar')) { aid = '#box-pengantar'; } else if (t.includes('undangan')) { aid = '#box-undangan'; }
-    $(aid).removeClass('hide').find('input,textarea,select').prop('disabled', false); 
-    loadAutoNumber();
+  const t = $('#pilihJenisSurat option:selected').text().toLowerCase() || ""; 
+  $('.form-box').addClass('hide').find('input,textarea,select').prop('disabled', true); 
+  let aid = '#box-umum'; 
+  if (t.includes('melaksanakan tugas') || t.includes('spmt') || t.includes('skmt')) { aid = '#box-spmt'; } else if (t.includes('keterangan siswa') || t.includes('siswa')) { aid = '#box-sis'; } else if (t.includes('tugas') || t.includes('spt')) { aid = '#box-spt'; } else if (t.includes('sk') || t.includes('keputusan')) { aid = '#box-sk'; } else if (t.includes('perjalanan')) { aid = '#box-sppd'; } else if (t.includes('surat izin') || t.includes('izin')) { aid = '#box-izin'; } else if (t.includes('keterangan')) { aid = '#box-suket'; } else if (t.includes('nota')) { aid = '#box-nota'; } else if (t.includes('pengantar')) { aid = '#box-pengantar'; } else if (t.includes('undangan')) { aid = '#box-undangan'; }
+  $(aid).removeClass('hide').find('input,textarea,select').prop('disabled', false); 
+  
+  // Logika memunculkan Tembusan untuk jenis surat tertentu
+  const showTembusan = ['umum', 'dinas', 'undangan', 'keputusan', 'sk', 'tugas', 'spmt', 'skmt', 'nota', 'izin'].some(k => t.includes(k));
+  if(showTembusan) {
+      $('#box-tembusan').removeClass('hide').find('textarea').prop('disabled', false);
+  } else {
+      $('#box-tembusan').addClass('hide').find('textarea').prop('disabled', true);
   }
+
+  loadAutoNumber();
+}
+
+
   function loadAutoNumber() { apiCall('getAutoNumberData').then(r => { if (r.success) { if($('#inpNoUrut').val() === "") { $('#inpNoUrut').val(r.nextNo); } $('#inpKodeSekolah').val(r.kodeSekolah); updatePreview(); } }); }
   function updatePreview() { const d=new Date(); const romawi = ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"][d.getMonth()]; const f=`${$('#selKodeArsip').val()||'...'}/${$('#inpNoUrut').val()||'...'}/${$('#inpKodeSekolah').val()||'...'}/${romawi}/${d.getFullYear()}`; $('#previewNomor').text(f); $('#nomorFull').val(f); }
   function updateTanggalSurat() { if($('#inpTglSurat').val()) { const tgl = new Date($('#inpTglSurat').val()).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}); const kota = $('#inKotaSurat').val() || "Tempat"; $('#tanggalSuratFull').val(kota + ", " + tgl); } }
