@@ -786,40 +786,51 @@ div:where(.swal2-container) {
 }
 
 @media (max-width: 768px) {
-    /* Agar Tab Agenda dan Referensi Proporsional di HP (50/50 & Teks Tidak Turun) */
+    /* Agar Tab Proporsional di HP (Pas 50/50 & Teks Tidak Turun) */
     #page-agenda .nav-tabs, 
-    #page-referensi .nav-tabs {
+    #page-referensi .nav-tabs,
+    #page-setting .nav-tabs {
         display: flex !important;
         flex-wrap: wrap !important;
         margin-bottom: 10px !important;
+        padding: 0 !important;
     }
     
     #page-agenda .nav-tabs .nav-item, 
-    #page-referensi .nav-tabs .nav-item {
-        flex: 1 1 50% !important; /* Memaksa ukuran pas 50% (2 kolom) */
+    #page-referensi .nav-tabs .nav-item,
+    #page-setting .nav-tabs .nav-item {
+        flex: 0 0 50% !important; /* Memaksa presisi 50% */
+        max-width: 50% !important;
+        width: 50% !important;
         text-align: center;
+        padding: 2px !important;
+        margin: 0 !important;
     }
     
     #page-agenda .nav-tabs .nav-link, 
-    #page-referensi .nav-tabs .nav-link {
+    #page-referensi .nav-tabs .nav-link,
+    #page-setting .nav-tabs .nav-link {
         font-size: 0.75rem !important;
         padding: 8px 4px !important;
-        white-space: nowrap !important; /* Mencegah teks turun ke bawah */
+        white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         height: 100% !important;
+        width: 100% !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         border-radius: 4px !important;
     }
 
-    #page-referensi .nav-tabs .nav-link {
-        font-size: 0.65rem !important; /* Lebih kecil karena teks referensi lebih panjang */
+    #page-referensi .nav-tabs .nav-link,
+    #page-setting .nav-tabs .nav-link {
+        font-size: 0.65rem !important; 
     }
 
     #page-agenda .nav-tabs .nav-link i, 
-    #page-referensi .nav-tabs .nav-link i {
+    #page-referensi .nav-tabs .nav-link i,
+    #page-setting .nav-tabs .nav-link i {
         margin-right: 4px !important;
         font-size: 0.85rem !important;
     }
