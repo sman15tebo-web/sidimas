@@ -167,14 +167,22 @@ async function syncToCloud() {
             if (typeof loadSiswa === 'function') loadSiswa();
 
             const pendingCount = outcome.pendingQueue + outcome.pendingMasuk + outcome.pendingKeluar;
-            Swal.fire(pendingCount ? 'Sinkronisasi Sebagian' : 'Sinkronisasi Sukses',
-                pendingCount ? `${pendingCount} perubahan tetap tersimpan lokal dan akan dicoba lagi.` : 'Data lokal dan cloud telah disinkronkan.',
-                pendingCount ? 'warning' : 'success');
+            if (res.pullWarning) {
+                Swal.fire('Data Terkirim, Refresh Tertunda', `Status simpanan sudah diproses. Data terbaru dari Spreadsheet belum seluruhnya dimuat: ${res.pullWarning}`, 'warning');
+            } else {
+                Swal.fire(pendingCount ? 'Sinkronisasi Sebagian' : 'Sinkronisasi Sukses',
+                    pendingCount ? `${pendingCount} perubahan tetap tersimpan lokal dan akan dicoba lagi.` : 'Data lokal dan cloud telah disinkronkan.',
+                    pendingCount ? 'warning' : 'success');
+            }
             refreshAllTables();
             if ($('#page-masuk').is(':visible')) refreshTable('masuk');
             if ($('#page-keluar').is(':visible')) refreshTable('keluar');
         } else {
-            Swal.fire('Gagal Sinkronisasi', res && res.message || 'Server tidak mengonfirmasi sinkronisasi.', 'error');
+            const serverError = res && (res.message || res.error);
+            const detail = serverError
+                ? `Detail: ${serverError}<br><br>`
+                : 'Balasan server tidak lengkap.<br><br>';
+            Swal.fire('Gagal Sinkronisasi', `${detail}Jika perubahan ternyata sudah masuk ke Spreadsheet, data lokal masih berstatus pending. Coba sinkronkan kembali; server memperbarui berdasarkan ID surat sehingga tidak membuat baris surat duplikat.`, 'error');
         }
     } catch (err) {
         clearInterval(progressInterval);
@@ -182,7 +190,7 @@ async function syncToCloud() {
         if (!API_URL) {
             Swal.fire('Info', 'Harap isi Link Web App URL (GAS) terlebih dahulu.', 'info');
         } else {
-            Swal.fire('Error Sinkronisasi', `<b>Pesan Error:</b><br><code style="font-size:11px;word-break:break-all">${err.message || err}</code><br><br>Pastikan internet aktif dan Link URL benar.`, 'error');
+            Swal.fire('Balasan Sinkronisasi Gagal', `<b>Pesan Error:</b><br><code style="font-size:11px;word-break:break-all">${err.message || err}</code><br><br>Periksa koneksi dan URL GAS. Jika koneksi putus setelah server menerima data, sebagian perubahan mungkin sudah masuk ke Spreadsheet; data lokal tetap pending dan aman untuk dicoba sinkron kembali.`, 'error');
         }
     } finally {
         clearInterval(progressInterval);
