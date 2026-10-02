@@ -669,7 +669,17 @@ async function saveGeneratedLetterToOutgoing(archiveData) {
 
     const id = `GEN_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const currentUser = localStorage.getItem('sidimas_user') || 'Admin';
-    const perihal = dataObj.perihal || dataObj.isiUmum || dataObj.acaraDetail || dataObj.namaBarang || dataObj.suketHal || 'Surat hasil generate';
+    const templateName = String(dataObj.pilihJenisSurat || '').replace(/^\d+\.\s*/, '').replace(/\.docx$/i, '').trim();
+    const templateKey = templateName.toLowerCase();
+    const useFormSubject = templateKey.includes('surat dinas umum') || templateKey.includes('surat undangan');
+    const templateSubjects = {
+        'surat perjalanan dinas (spd)': 'Surat Perjalanan Dinas',
+        'surat tugas (st)': 'Surat Tugas',
+        'surat pernyataan melaksanakan tugas (spmt)': 'Surat Pernyataan Melaksanakan Tugas'
+    };
+    const perihal = useFormSubject
+        ? String(dataObj.perihal || '').trim() || templateName
+        : templateSubjects[templateKey] || templateName || 'Surat';
     const fileUrl = `data:${fileInfo.mimeType};base64,${fileInfo.data}`;
     const record = {
         id,
