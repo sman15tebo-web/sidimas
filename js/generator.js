@@ -377,12 +377,30 @@ function buildDocxFromDataObj(zip, dataObj, templateName, sKop) {
     return doc;
 }
 /* --- GENERATOR SURAT --- */
+function toggleModeAreas(radioName, prefix) {
+    const selectedMode = $(`input[name="${radioName}"]:checked`).val() || 'sendirian';
+    ['sendirian', 'kolektif', 'lampiran'].forEach(mode => {
+        const area = $(`#${prefix}Area${mode.charAt(0).toUpperCase()}${mode.slice(1)}`);
+        const isVisible = mode === selectedMode;
+        area.toggleClass('hide', !isVisible)
+            .find('input, textarea, select, button').prop('disabled', !isVisible);
+    });
+}
+
+function toggleModeSpt() { toggleModeAreas('modeSpt', 'spt'); }
+function toggleModeSuket() { toggleModeAreas('modeSuket', 'suket'); }
+function toggleModeSis() { toggleModeAreas('modeSis', 'sis'); }
+
 function gantiFormSurat() {
     const t = $('#pilihJenisSurat option:selected').text().toLowerCase() || "";
     $('.form-box').addClass('d-none').find('input,textarea,select').prop('disabled', true);
     let aid = '#box-umum';
     if (t.includes('melaksanakan tugas') || t.includes('spmt') || t.includes('skmt')) { aid = '#box-spmt'; } else if (t.includes('keterangan siswa') || t.includes('siswa')) { aid = '#box-sis'; } else if (t.includes('tugas') || t.includes('spt')) { aid = '#box-spt'; } else if (t.includes('sk') || t.includes('keputusan')) { aid = '#box-sk'; } else if (t.includes('perjalanan')) { aid = '#box-sppd'; } else if (t.includes('surat izin') || t.includes('izin')) { aid = '#box-izin'; } else if (t.includes('keterangan')) { aid = '#box-suket'; } else if (t.includes('nota')) { aid = '#box-nota'; } else if (t.includes('pengantar')) { aid = '#box-pengantar'; } else if (t.includes('undangan')) { aid = '#box-undangan'; } else if (t.includes('lampiran')) { aid = '#box-lampiran'; }
     $(aid).removeClass('d-none').find('input,textarea,select').prop('disabled', false);
+
+    if (aid === '#box-spt') toggleModeSpt();
+    else if (aid === '#box-suket') toggleModeSuket();
+    else if (aid === '#box-sis') toggleModeSis();
 
     // Logika memunculkan Tembusan untuk jenis surat tertentu
     const showTembusan = ['umum', 'dinas', 'undangan', 'keputusan', 'sk', 'tugas', 'spmt', 'skmt', 'nota', 'izin'].some(k => t.includes(k));
@@ -810,6 +828,22 @@ function submitGenerate(e) {
 }
 
 /* --- FUNGSI TABEL DINAMIS UNTUK LAMPIRAN --- */
+function addRowKolektif(tableId) {
+    const table = document.getElementById(tableId);
+    const tbody = table && table.tBodies[0];
+    const firstRow = tbody && tbody.rows[0];
+    if (!tbody || !firstRow) return;
+
+    const newRow = firstRow.cloneNode(true);
+    newRow.querySelectorAll('input, textarea').forEach(field => { field.value = ''; });
+    newRow.querySelectorAll('select').forEach(field => { field.selectedIndex = 0; });
+    tbody.appendChild(newRow);
+}
+
+function addRowKolektifSis(tableId) {
+    addRowKolektif(tableId);
+}
+
 function addColLampiran() {
     $('#tblDynamicLampiran thead tr').append('<th><input type="text" class="form-control form-control-sm fw-bold" placeholder="Header Baru"></th>');
     $('#tblDynamicLampiran tbody tr').each(function () {
