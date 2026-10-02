@@ -110,6 +110,30 @@ function processSyncModal() {
     syncToCloud();
 }
 
+async function verifyBatchAfterLostResponse(payload, originalError) {
+    const verification = await apiCall('verifySyncBatch', {
+        masuk: payload.suratMasuk.map(record => record.id),
+        keluar: payload.suratKeluar.map(record => record.id)
+    });
+    if (!verification || verification.success !== true) {
+        throw new Error(`${originalError || 'Balasan sinkronisasi tidak diterima.'}; verifikasi server gagal: ${verification && (verification.message || verification.error) || 'respons tidak valid'}`);
+    }
+    return {
+        success: true,
+        masukResults: verification.masukResults || [],
+        keluarResults: verification.keluarResults || [],
+        queueResults: [],
+        pulledMasuk: [],
+        pulledKeluar: [],
+        pulledSettings: null,
+        pulledKodeCustom: [],
+        pulledPegawai: [],
+        pulledSiswa: [],
+        pulledEksternal: [],
+        verifiedAfterLostResponse: true
+    };
+}
+
 async function syncToCloud() {
     const btn = $('#btnSyncMain');
     const originalHTML = btn.html();
@@ -150,7 +174,27 @@ async function syncToCloud() {
             deleteQueue: hapusAntrian
         };
 
-        const res = await apiCall('syncBatch', payload);
+        const submittedCount = pendingMasuk.length + pendingKeluar.length + hapusAntrian.length;
+        if (submittedCount === 0) {
+            clearInterval(progressInterval);
+            Swal.fire('Sinkronisasi Selesai', 'Tidak ada data pending untuk dikirim. Semua data lokal sudah tersinkron.', 'success');
+            return;
+        }
+
+        let res;
+        let responseError = '';
+        try {
+            res = await apiCall('syncBatch', payload);
+            if (res && (res.error || res.success !== true)) {
+                responseError = res.message || res.error || 'Server tidak memberikan konfirmasi sinkronisasi.';
+            }
+        } catch (error) {
+            responseError = error.message || String(error);
+        }
+        if (responseError) {
+            console.warn('[SiDiMAS Sync] Memeriksa ID surat setelah balasan gagal:', responseError);
+            res = await verifyBatchAfterLostResponse(payload, responseError);
+        }
         clearInterval(progressInterval);
         
         if (res && res.success === true) {
@@ -167,22 +211,23 @@ async function syncToCloud() {
             if (typeof loadSiswa === 'function') loadSiswa();
 
             const pendingCount = outcome.pendingQueue + outcome.pendingMasuk + outcome.pendingKeluar;
+            const sentMasuk = pendingMasuk.length;
+            const sentKeluar = pendingKeluar.length;
+            const sentQueue = hapusAntrian.length;
+            const sentSummary = `Surat masuk: ${sentMasuk - outcome.pendingMasuk}/${sentMasuk} berhasil<br>Surat keluar: ${sentKeluar - outcome.pendingKeluar}/${sentKeluar} berhasil<br>Aksi antrean: ${sentQueue - outcome.pendingQueue}/${sentQueue} berhasil`;
             if (res.pullWarning) {
-                Swal.fire('Data Terkirim, Refresh Tertunda', `Status simpanan sudah diproses. Data terbaru dari Spreadsheet belum seluruhnya dimuat: ${res.pullWarning}`, 'warning');
+                Swal.fire('Data Terkirim, Refresh Tertunda', `${sentSummary}<br><br>Data terbaru belum seluruhnya dimuat: ${res.pullWarning}`, 'warning');
+            } else if (pendingCount) {
+                Swal.fire('Sinkronisasi Sebagian', `${sentSummary}<br><br>${pendingCount} item belum terkonfirmasi dan tetap pending di perangkat.`, 'warning');
             } else {
-                Swal.fire(pendingCount ? 'Sinkronisasi Sebagian' : 'Sinkronisasi Sukses',
-                    pendingCount ? `${pendingCount} perubahan tetap tersimpan lokal dan akan dicoba lagi.` : 'Data lokal dan cloud telah disinkronkan.',
-                    pendingCount ? 'warning' : 'success');
+                const title = res.verifiedAfterLostResponse ? 'Berhasil Diverifikasi' : 'Sinkronisasi Sukses';
+                Swal.fire(title, `${sentSummary}<br><br>${res.verifiedAfterLostResponse ? 'Surat yang sudah tercatat di Spreadsheet berhasil diverifikasi.' : 'Data lokal dan Spreadsheet telah disinkronkan.'}`, 'success');
             }
             refreshAllTables();
             if ($('#page-masuk').is(':visible')) refreshTable('masuk');
             if ($('#page-keluar').is(':visible')) refreshTable('keluar');
         } else {
-            const serverError = res && (res.message || res.error);
-            const detail = serverError
-                ? `Detail: ${serverError}<br><br>`
-                : 'Balasan server tidak lengkap.<br><br>';
-            Swal.fire('Gagal Sinkronisasi', `${detail}Jika perubahan ternyata sudah masuk ke Spreadsheet, data lokal masih berstatus pending. Coba sinkronkan kembali; server memperbarui berdasarkan ID surat sehingga tidak membuat baris surat duplikat.`, 'error');
+            Swal.fire('Gagal Sinkronisasi', res && (res.message || res.error) || 'Server tidak mengonfirmasi sinkronisasi.', 'error');
         }
     } catch (err) {
         clearInterval(progressInterval);
