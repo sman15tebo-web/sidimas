@@ -736,6 +736,7 @@ async function saveGeneratedLetterToOutgoing(archiveData) {
 }
 
 let externalInboxRows = [];
+let externalPreviewBlobUrl = null;
 
 function escapeInboxValue(value) {
     const element = document.createElement('span');
@@ -828,19 +829,53 @@ function showDetailSuratEksternal(id) {
     $('#vExtSifat').text(record.sifatSurat || '-');
     $('#vExtKeterangan').text(record.keterangan || '-');
 
-    const fileUrl = record.fileUrl || (record.fileInfoRaw && record.fileInfoRaw.data
+    const fileUrl = (record.fileUrl && record.fileUrl !== '-') ? record.fileUrl : (record.fileInfoRaw && record.fileInfoRaw.data
         ? `data:${record.fileInfoRaw.mimeType || 'application/octet-stream'};base64,${record.fileInfoRaw.data}`
         : '');
     const fileContainer = document.getElementById('vExtFileContainer');
     fileContainer.replaceChildren();
     if (fileUrl) {
-        const link = document.createElement('a');
-        link.className = 'btn btn-primary';
-        link.href = fileUrl;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        link.textContent = 'Buka Lampiran';
-        fileContainer.appendChild(link);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-primary';
+        button.innerHTML = '<i class="fas fa-eye me-2"></i>Pratinjau Lampiran';
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Memuat lampiran...';
+            try {
+                let fileInfo = record.fileInfoRaw;
+                if ((!fileInfo || !fileInfo.data) && typeof isAppOnline === 'function' && isAppOnline()) {
+                    const response = await apiCall('getSuratEksternalFile', { id: record.id });
+                    if (!response || response.success !== true || !response.data) {
+                        throw new Error(response && response.message || 'Server tidak mengirim isi lampiran.');
+                    }
+                    fileInfo = response;
+                }
+                if (!fileInfo || !fileInfo.data) {
+                    throw new Error('Isi lampiran tidak tersimpan di perangkat dan koneksi internet tidak tersedia.');
+                }
+
+                const blob = dataUriToBlob(`data:${fileInfo.mimeType || 'application/octet-stream'};base64,${fileInfo.data}`);
+                if (!blob) throw new Error('Format lampiran tidak dapat dibaca.');
+                if (externalPreviewBlobUrl) URL.revokeObjectURL(externalPreviewBlobUrl);
+                externalPreviewBlobUrl = URL.createObjectURL(blob);
+                const mimeType = fileInfo.mimeType || blob.type;
+                const typeBadge = mimeType === 'application/pdf' ? 'PDF' : mimeType.startsWith('image/') ? 'GAMBAR' : 'BERKAS';
+                bootstrap.Modal.getInstance(document.getElementById('modalDetailEksternal'))?.hide();
+                openFilePreviewModal({
+                    title: `Lampiran Surat ${record.noSurat || ''}`,
+                    typeBadge,
+                    dataUrl: externalPreviewBlobUrl,
+                    blob,
+                    filename: fileInfo.name || 'lampiran'
+                });
+            } catch (error) {
+                Swal.fire('Gagal Membuka Lampiran', error.message || String(error), 'error');
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-eye me-2"></i>Pratinjau Lampiran';
+            }
+        });
+        fileContainer.appendChild(button);
     } else {
         fileContainer.textContent = 'Lampiran tidak tersedia.';
     }
@@ -1264,13 +1299,43 @@ function btnFile(d, rowIndex, jenis) {
     </button>`;
 }
 
-function viewFileSurat(jenis, index) {
+async function viewFileSurat(jenis, index) {
     const row = getDataByIndex(jenis, index);
     if (!row) return;
     const isMasuk = (jenis === 'masuk');
     const noSurat = isMasuk ? (row[4] || 'Surat Masuk') : (row[3] || 'Surat Keluar');
     const perihal = isMasuk ? (row[5] || '') : (row[4] || '');
-    const fileUrl = isMasuk ? row[9] : row[8];
+    let fileUrl = isMasuk ? row[9] : row[8];
+    const recordId = row[0];
+
+    if (isElectron) {
+        const tableDB = isMasuk ? localDB.suratMasuk : localDB.suratKeluar;
+        const localRecord = (await tableDB.toArray()).find(record => String(record.id) === String(recordId));
+        if (localRecord && typeof localRecord.fileUrl === 'string' && localRecord.fileUrl.startsWith('data:')) {
+            fileUrl = localRecord.fileUrl;
+        } else if (localRecord && localRecord.fileInfoRaw && localRecord.fileInfoRaw.data) {
+            fileUrl = `data:${localRecord.fileInfoRaw.mimeType || 'application/octet-stream'};base64,${localRecord.fileInfoRaw.data}`;
+        } else if (fileUrl && /^https?:/i.test(fileUrl)) {
+            if (!navigator.onLine || !API_URL) {
+                Swal.fire('Lampiran Belum Tersimpan Lokal', 'Desktop sedang offline dan file surat ini belum memiliki salinan di SQLite. Sambungkan internet dan buka file sekali untuk menyimpannya ke perangkat.', 'warning');
+                return;
+            }
+            Swal.fire({ title: 'Menyimpan Lampiran ke Perangkat...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const response = await apiCall('getArsipSuratFile', { jenis, id: recordId });
+                if (!response || response.success !== true || !response.data) {
+                    throw new Error(response && response.message || 'Server tidak mengirim isi lampiran.');
+                }
+                fileUrl = `data:${response.mimeType || 'application/octet-stream'};base64,${response.data}`;
+                await tableDB.update(recordId, { fileUrl });
+                Swal.close();
+            } catch (error) {
+                Swal.close();
+                Swal.fire('Gagal Menyimpan Lampiran Lokal', error.message || String(error), 'error');
+                return;
+            }
+        }
+    }
 
     if (!fileUrl || fileUrl === '-' || fileUrl.length < 5) {
         Swal.fire('Informasi', 'Surat ini tidak memiliki lampiran berkas/file.', 'info');
