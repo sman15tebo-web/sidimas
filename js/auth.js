@@ -26,6 +26,7 @@ function checkSession() {
         // Jika sudah > 6 jam, tarik data terbaru dari Spreadsheet di background
         setTimeout(() => {
             if (typeof autoRefreshOnlineCache === 'function') autoRefreshOnlineCache(false);
+            if (typeof refreshInboxBadge === 'function') refreshInboxBadge();
         }, 1500);
     } else {
         $('#view-dashboard').addClass('hide');
@@ -585,4 +586,4 @@ function modalInstal() {
         confirmButtonColor: 'var(--main-color)'
     });
 }
-
+
