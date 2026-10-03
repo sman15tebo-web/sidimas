@@ -65,6 +65,8 @@ async function applySyncResponse(res, pendingMasuk = [], pendingKeluar = [], pen
     await mergePulledRows('pegawai', res.pulledPegawai, pegawaiProtected);
     await mergePulledRows('siswa', res.pulledSiswa, siswaProtected);
     await mergePulledRows('suratEksternal', res.pulledEksternal, eksternalProtected);
+    if (typeof refreshInboxBadge === 'function') refreshInboxBadge(res.pulledEksternal);
+    if ($('#page-inbox').is(':visible') && typeof loadInboxTable === 'function') await loadInboxTable();
 
     if (res.pulledSettings) {
         localStorage.setItem('sidimas_settings', JSON.stringify(res.pulledSettings));
