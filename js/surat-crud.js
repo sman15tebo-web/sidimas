@@ -735,6 +735,231 @@ async function saveGeneratedLetterToOutgoing(archiveData) {
     return { pending, id };
 }
 
+let externalInboxRows = [];
+
+function escapeInboxValue(value) {
+    const element = document.createElement('span');
+    element.textContent = value == null ? '' : String(value);
+    return element.innerHTML;
+}
+
+function updateInboxBadge(rows) {
+    const waitingCount = rows.filter(row => {
+        const status = String(row.status || 'Menunggu Verifikasi').trim().toLowerCase();
+        return !status || ['menunggu verifikasi', 'baru', 'pending', 'belum dibaca'].includes(status);
+    }).length;
+    document.querySelectorAll('#badgeInboxSidebar, #badgeInboxMobile').forEach(badge => {
+        badge.textContent = waitingCount > 99 ? '99+' : String(waitingCount);
+        badge.style.display = waitingCount ? 'inline-block' : 'none';
+    });
+    return waitingCount;
+}
+
+async function fetchExternalInboxRows() {
+    if (typeof isAppOnline === 'function' && isAppOnline()) {
+        const response = await apiCall('getSuratEksternal');
+        if (!response || response.success !== true) {
+            throw new Error(response && response.message || 'Gagal mengambil Surat Masuk dari Spreadsheet.');
+        }
+        return response.data || [];
+    }
+    if (isElectron) return localDB.suratEksternal.toArray();
+    return [];
+}
+
+async function refreshInboxBadge(rows) {
+    try {
+        externalInboxRows = Array.isArray(rows) ? rows : await fetchExternalInboxRows();
+        updateInboxBadge(externalInboxRows);
+        return externalInboxRows;
+    } catch (error) {
+        console.warn('[SiDiMAS] Gagal memperbarui badge Surat Masuk:', error);
+        return externalInboxRows;
+    }
+}
+
+async function loadInboxTable() {
+    const body = document.getElementById('tbody-inbox-eksternal');
+    if (!body) return;
+    body.innerHTML = '<tr><td colspan="7" class="text-center p-4"><span class="spinner-border spinner-border-sm me-2"></span>Memuat surat masuk...</td></tr>';
+    try {
+        externalInboxRows = await fetchExternalInboxRows();
+        updateInboxBadge(externalInboxRows);
+        const orderedRows = [...externalInboxRows].sort((a, b) => String(b.waktuInput || '').localeCompare(String(a.waktuInput || '')));
+        if (!orderedRows.length) {
+            body.innerHTML = '<tr><td colspan="7" class="text-center text-muted p-4">Belum ada surat eksternal yang masuk.</td></tr>';
+            return;
+        }
+        body.innerHTML = orderedRows.map((row, index) => {
+            const status = row.status || 'Menunggu Verifikasi';
+            const normalizedStatus = String(status).toLowerCase();
+            const badgeClass = normalizedStatus === 'diterima' ? 'bg-success' : normalizedStatus === 'ditolak' ? 'bg-danger' : 'bg-warning text-dark';
+            const timestamp = row.waktuInput ? new Date(row.waktuInput).toLocaleString('id-ID') : '-';
+            return `<tr>
+                <td class="text-center">${index + 1}</td>
+                <td>${escapeInboxValue(timestamp)}</td>
+                <td>${escapeInboxValue(row.namaPengirim)}<br><small class="text-muted">${escapeInboxValue(row.lembagaPengirim)}</small></td>
+                <td>${escapeInboxValue(row.noSurat)}<br><small class="text-muted">${escapeInboxValue(row.tglSurat)}</small></td>
+                <td>${escapeInboxValue(row.halSurat)}</td>
+                <td class="text-center"><span class="badge ${badgeClass}">${escapeInboxValue(status)}</span></td>
+                <td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary btn-detail-inbox" data-inbox-id="${escapeInboxValue(row.id)}"><i class="fas fa-eye me-1"></i>Detail</button></td>
+            </tr>`;
+        }).join('');
+        body.querySelectorAll('.btn-detail-inbox').forEach(button => {
+            button.addEventListener('click', () => showDetailSuratEksternal(button.dataset.inboxId));
+        });
+    } catch (error) {
+        body.innerHTML = `<tr><td colspan="7" class="text-center text-danger p-4">${escapeInboxValue(error.message || error)}</td></tr>`;
+        console.error('[SiDiMAS] Gagal memuat inbox eksternal:', error);
+    }
+}
+
+function showDetailSuratEksternal(id) {
+    const record = externalInboxRows.find(row => String(row.id) === String(id));
+    if (!record) return Swal.fire('Tidak Ditemukan', 'Data surat tidak ada di daftar saat ini. Muat ulang inbox.', 'warning');
+    $('#vExtNama').text(record.namaPengirim || '-');
+    $('#vExtEmail').text(record.emailPengirim || '-');
+    $('#vExtNoHp').text(record.noHpPengirim || '-');
+    $('#vExtLembaga').text(record.lembagaPengirim || '-');
+    $('#vExtNoSurat').text(record.noSurat || '-');
+    $('#vExtTglSurat').text(record.tglSurat || '-');
+    $('#vExtHalSurat').text(record.halSurat || '-');
+    $('#vExtTujuan').text(record.tujuanSurat || '-');
+    $('#vExtSifat').text(record.sifatSurat || '-');
+    $('#vExtKeterangan').text(record.keterangan || '-');
+
+    const fileUrl = record.fileUrl || (record.fileInfoRaw && record.fileInfoRaw.data
+        ? `data:${record.fileInfoRaw.mimeType || 'application/octet-stream'};base64,${record.fileInfoRaw.data}`
+        : '');
+    const fileContainer = document.getElementById('vExtFileContainer');
+    fileContainer.replaceChildren();
+    if (fileUrl) {
+        const link = document.createElement('a');
+        link.className = 'btn btn-primary';
+        link.href = fileUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Buka Lampiran';
+        fileContainer.appendChild(link);
+    } else {
+        fileContainer.textContent = 'Lampiran tidak tersedia.';
+    }
+
+    const canUpdate = (localStorage.getItem('sidimas_role') || 'admin').toLowerCase() === 'admin';
+    $('#btnTerimaEksternal, #btnTolakEksternal').toggle(canUpdate);
+    $('#btnTerimaEksternal').off('click').on('click', () => updateStatusSuratEksternal(record, 'Diterima'));
+    $('#btnTolakEksternal').off('click').on('click', () => updateStatusSuratEksternal(record, 'Ditolak'));
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDetailEksternal')).show();
+}
+
+async function updateStatusSuratEksternal(record, status) {
+    try {
+        if (typeof isAppOnline === 'function' && isAppOnline()) {
+            const response = await apiCall('updateStatusEksternal', { id: record.id, status });
+            if (!response || response.success !== true) throw new Error(response && response.message || 'Spreadsheet tidak mengonfirmasi perubahan status.');
+        } else if (isElectron) {
+            await localDB.suratEksternal.update(record.id, { status });
+            await localDB.antrianSync.put({ action: 'updateStatusEksternal', payload: { id: record.id, status }, status: 'pending' });
+        } else {
+            throw new Error('Koneksi internet diperlukan untuk mengubah status surat.');
+        }
+        record.status = status;
+        updateInboxBadge(externalInboxRows);
+        bootstrap.Modal.getInstance(document.getElementById('modalDetailEksternal'))?.hide();
+        await loadInboxTable();
+        Swal.fire('Status Diperbarui', `Surat ditandai ${status.toLowerCase()}.`, 'success');
+    } catch (error) {
+        Swal.fire('Gagal Memperbarui Status', error.message || String(error), 'error');
+    }
+}
+
+function showModalKirimSurat() {
+    const modalElement = document.getElementById('modalKirimSurat');
+    if (!modalElement) {
+        Swal.fire('Form Tidak Tersedia', 'Form pengiriman surat tidak ditemukan.', 'error');
+        return;
+    }
+    bootstrap.Modal.getOrCreateInstance(modalElement).show();
+}
+
+async function submitSuratEksternal(event) {
+    event.preventDefault();
+    const online = typeof isAppOnline === 'function' && isAppOnline();
+    if (!online && !isElectron) {
+        Swal.fire('Tidak Ada Koneksi', 'Pengiriman surat dari browser memerlukan koneksi internet.', 'warning');
+        return;
+    }
+
+    const file = document.getElementById('extFile').files[0];
+    if (!file) {
+        Swal.fire('File Wajib Dipilih', 'Pilih file surat yang akan dikirim.', 'warning');
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        Swal.fire('File Terlalu Besar', 'Ukuran file maksimal 10 MB.', 'warning');
+        return;
+    }
+
+    const button = $('#btnSubmitEksternal');
+    const originalHtml = button.html();
+    button.prop('disabled', true);
+    $('#spinSubmitEksternal').removeClass('hide');
+
+    try {
+        const fileInfoRaw = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({
+                name: file.name,
+                mimeType: file.type || 'application/octet-stream',
+                data: String(reader.result).split(',')[1]
+            });
+            reader.onerror = () => reject(reader.error || new Error('Gagal membaca file surat.'));
+            reader.readAsDataURL(file);
+        });
+
+        const id = `EXT_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const record = {
+            id,
+            namaPengirim: $('#extNama').val().trim(),
+            emailPengirim: $('#extEmail').val().trim(),
+            noHpPengirim: $('#extNoHp').val().trim(),
+            lembagaPengirim: $('#extLembaga').val().trim(),
+            noSurat: $('#extNoSurat').val().trim(),
+            sifatSurat: $('#extSifatSurat').val(),
+            halSurat: $('#extHalSurat').val().trim(),
+            tujuanSurat: $('#extTujuanSurat').val().trim(),
+            tglSurat: $('#extTglSurat').val(),
+            keterangan: $('#extKeterangan').val().trim(),
+            fileInfoRaw,
+            status: 'Menunggu Verifikasi',
+            waktuInput: new Date().toISOString(),
+            sync_status: online ? 'synced' : 'pending'
+        };
+
+        if (online) {
+            const response = await apiCall('insertSuratEksternal', record);
+            if (!response || response.success !== true) {
+                throw new Error(response && (response.message || response.error) || 'Server tidak mengonfirmasi penerimaan surat.');
+            }
+            await refreshInboxBadge();
+            Swal.fire('Surat Terkirim', 'Surat berhasil dikirim dan diterima server.', 'success');
+        } else {
+            await localDB.suratEksternal.put(record);
+            await localDB.antrianSync.put({ action: 'insertSuratEksternal', payload: record, status: 'pending' });
+            externalInboxRows.unshift(record);
+            updateInboxBadge(externalInboxRows);
+            Swal.fire('Tersimpan di Perangkat', 'Surat tersimpan di SQLite dan akan dikirim saat koneksi tersedia.', 'success');
+        }
+
+        document.getElementById('fKirimSurat').reset();
+        bootstrap.Modal.getInstance(document.getElementById('modalKirimSurat'))?.hide();
+    } catch (error) {
+        Swal.fire('Gagal Mengirim Surat', error.message || String(error), 'error');
+    } finally {
+        button.prop('disabled', false).html(originalHtml);
+    }
+}
+
 function printHtmlElement(htmlContent) {
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
