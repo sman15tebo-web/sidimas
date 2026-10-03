@@ -17,9 +17,17 @@ async function getProtectedIds(records, actionNames, keyName = 'id') {
 
 async function mergePulledRows(tableName, rows, protectedIds = new Set()) {
     if (!Array.isArray(rows)) return;
+    const localRows = isElectron && ['suratMasuk', 'suratKeluar'].includes(tableName)
+        ? await localDB[tableName].toArray()
+        : [];
+    const localRowsById = new Map(localRows.map(row => [String(row.id), row]));
     for (const row of rows) {
         if (row && row.id !== undefined && row.id !== null && row.id !== '' && !protectedIds.has(String(row.id))) {
-            await localDB[tableName].put(row);
+            const localRow = localRowsById.get(String(row.id));
+            const localFileUrl = localRow && typeof localRow.fileUrl === 'string' && localRow.fileUrl.startsWith('data:')
+                ? localRow.fileUrl
+                : null;
+            await localDB[tableName].put(localFileUrl ? { ...row, fileUrl: localFileUrl } : row);
         }
     }
 }
@@ -61,11 +69,19 @@ async function applySyncResponse(res, pendingMasuk = [], pendingKeluar = [], pen
     const pegawaiProtected = await getProtectedIds([], ['savePegawai', 'deletePegawai']);
     const siswaProtected = await getProtectedIds([], ['saveSiswa', 'deleteSiswa']);
     const eksternalProtected = await getProtectedIds([], ['insertSuratEksternal']);
+    const localExternalRows = await localDB.suratEksternal.toArray();
+    const localExternalFiles = new Map(localExternalRows
+        .filter(row => row.fileInfoRaw && row.fileInfoRaw.data)
+        .map(row => [String(row.id), row.fileInfoRaw]));
+    const externalRowsWithLocalFiles = (res.pulledEksternal || []).map(row => ({
+        ...row,
+        ...(localExternalFiles.has(String(row.id)) ? { fileInfoRaw: localExternalFiles.get(String(row.id)) } : {})
+    }));
     await mergePulledRows('kodeCustom', res.pulledKodeCustom, kodeProtected);
     await mergePulledRows('pegawai', res.pulledPegawai, pegawaiProtected);
     await mergePulledRows('siswa', res.pulledSiswa, siswaProtected);
-    await mergePulledRows('suratEksternal', res.pulledEksternal, eksternalProtected);
-    if (typeof refreshInboxBadge === 'function') refreshInboxBadge(res.pulledEksternal);
+    await mergePulledRows('suratEksternal', externalRowsWithLocalFiles, eksternalProtected);
+    if (typeof refreshInboxBadge === 'function') refreshInboxBadge(externalRowsWithLocalFiles);
     if ($('#page-inbox').is(':visible') && typeof loadInboxTable === 'function') await loadInboxTable();
 
     if (res.pulledSettings) {
