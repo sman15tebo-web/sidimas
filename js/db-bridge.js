@@ -100,7 +100,25 @@ const DAFTAR_BACKEND = {
     "demo": "https://"
 };
 
-let API_URL = localStorage.getItem('sidimas_api_url') || "";
+function getFallbackGasUrl() {
+    let url = "";
+    if (typeof window !== 'undefined' && window.APP_CONFIG) {
+        url = window.APP_CONFIG.gasUrl || window.APP_CONFIG.linkExec || window.APP_CONFIG.EXEC_LINK || "";
+    }
+    if (!url && typeof APP_CONFIG !== 'undefined') {
+        url = APP_CONFIG.gasUrl || APP_CONFIG.linkExec || APP_CONFIG.EXEC_LINK || "";
+    }
+    if (!url) {
+        url = localStorage.getItem('sidimas_api_url') || "";
+    }
+    if (!url || url.trim() === "") {
+        url = DAFTAR_BACKEND["sman15tebo"] || "https://script.google.com/macros/s/AKfycbx-QE31idTvmhqH9FkDY2eqqA1Mpkwpo2nsAdS5yvTrmuXjmrNhTwz9Rc6v0eeFxkA/exec";
+    }
+    return url;
+}
+window.getFallbackGasUrl = getFallbackGasUrl;
+
+let API_URL = localStorage.getItem('sidimas_api_url') || getFallbackGasUrl();
 
 function isAppOnline() {
     // Mode Desktop / File lokal = selalu offline dari spreadsheet
@@ -111,7 +129,7 @@ window.isAppOnline = isAppOnline;
 window.isOnlineMode = isAppOnline;
 
 async function apiCall(actionName, payloadData = {}) {
-    if (!API_URL) throw new Error('API_URL belum diisi');
+    if (!API_URL) API_URL = getFallbackGasUrl();
     try {
         if (isElectron) {
             // Di Electron: lewat IPC proxy (main process) → menghindari CORS
@@ -141,8 +159,8 @@ async function apiCall(actionName, payloadData = {}) {
 
 function initTenantRouting() {
     if (isElectron) {
-        if (!API_URL && window.APP_CONFIG && window.APP_CONFIG.gasUrl) {
-            API_URL = window.APP_CONFIG.gasUrl;
+        if (!API_URL || API_URL.trim() === "") {
+            API_URL = getFallbackGasUrl();
             localStorage.setItem('sidimas_api_url', API_URL);
         }
         return true;
