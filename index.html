@@ -1947,11 +1947,9 @@
                                 </div>
                                 <script>
                                     document.addEventListener('DOMContentLoaded', () => {
-                                        const cfg = (typeof window !== 'undefined' && window.APP_CONFIG) ? window.APP_CONFIG : ((typeof APP_CONFIG !== 'undefined') ? APP_CONFIG : {});
-                                        const url = cfg.gasUrl || cfg.linkExec || cfg.EXEC_LINK || localStorage.getItem('sidimas_api_url') || "";
-                                        if (url && document.getElementById('inApiUrl')) {
-                                            document.getElementById('inApiUrl').value = url;
-                                        }
+                                        const url = (typeof getFallbackGasUrl === 'function') ? getFallbackGasUrl() : "https://script.google.com/macros/s/AKfycbx-QE31idTvmhqH9FkDY2eqqA1Mpkwpo2nsAdS5yvTrmuXjmrNhTwz9Rc6v0eeFxkA/exec";
+                                        const el = document.getElementById('inApiUrl');
+                                        if (el) el.value = url;
                                     });
                                     function salinLinkExec() {
                                         const copyText = document.getElementById('inApiUrl');
