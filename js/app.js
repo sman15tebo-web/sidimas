@@ -105,13 +105,21 @@ function renderAppAttributes(s) {
     $('#inKepsekNama').val(s.kepsek_nama || ''); $('#inKepsekNip').val(s.kepsek_nip || '');
     $('#inKepsekPangkat').val(s.kepsek_pangkat || ''); $('#inKotaSurat').val(s.kota_surat || ''); $('#inKodeLembaga').val(s.kode_lembaga || '');
 
-    $('#inLinkExec').val(s.link_exec || "");
+    let defaultGasUrl = (typeof window.APP_CONFIG !== 'undefined' && (window.APP_CONFIG.gasUrl || window.APP_CONFIG.linkExec || window.APP_CONFIG.EXEC_LINK)) 
+        ? (window.APP_CONFIG.gasUrl || window.APP_CONFIG.linkExec || window.APP_CONFIG.EXEC_LINK) 
+        : ((typeof APP_CONFIG !== 'undefined' && (APP_CONFIG.gasUrl || APP_CONFIG.linkExec || APP_CONFIG.EXEC_LINK)) ? (APP_CONFIG.gasUrl || APP_CONFIG.linkExec || APP_CONFIG.EXEC_LINK) : "");
+    if (!s.link_exec || s.link_exec.trim() === "") {
+        s.link_exec = defaultGasUrl;
+    }
+    const finalGasUrl = s.link_exec || defaultGasUrl || localStorage.getItem('sidimas_api_url') || "";
+    $('#inLinkExec, #inApiUrl, #syncLinkExec').val(finalGasUrl);
 
     // Setel URL API (Google Apps Script) jika tersedia di pengaturan
-    if (s.link_exec && s.link_exec.trim() !== "") {
-        API_URL = s.link_exec.trim();
+    if (finalGasUrl && finalGasUrl.trim() !== "") {
+        API_URL = finalGasUrl.trim();
         try { localStorage.setItem('sidimas_api_url', API_URL); } catch (e) { }
     }
+
 
     if (!$('input[name="ttdNama"]').val()) $('input[name="ttdNama"]').val(s.kepsek_nama);
     if (!$('input[name="ttdNip"]').val()) $('input[name="ttdNip"]').val(s.kepsek_nip);
@@ -376,4 +384,4 @@ function showLoadingTimer2(judul) {
 }
 
 function formatNomorUrut(input) { let val = input.value; if (val === "") return; input.value = String(val).padStart(3, '0'); }
-
+
