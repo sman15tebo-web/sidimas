@@ -105,20 +105,15 @@ function renderAppAttributes(s) {
     $('#inKepsekNama').val(s.kepsek_nama || ''); $('#inKepsekNip').val(s.kepsek_nip || '');
     $('#inKepsekPangkat').val(s.kepsek_pangkat || ''); $('#inKotaSurat').val(s.kota_surat || ''); $('#inKodeLembaga').val(s.kode_lembaga || '');
 
-    let defaultGasUrl = (typeof window.APP_CONFIG !== 'undefined' && (window.APP_CONFIG.gasUrl || window.APP_CONFIG.linkExec || window.APP_CONFIG.EXEC_LINK)) 
-        ? (window.APP_CONFIG.gasUrl || window.APP_CONFIG.linkExec || window.APP_CONFIG.EXEC_LINK) 
-        : ((typeof APP_CONFIG !== 'undefined' && (APP_CONFIG.gasUrl || APP_CONFIG.linkExec || APP_CONFIG.EXEC_LINK)) ? (APP_CONFIG.gasUrl || APP_CONFIG.linkExec || APP_CONFIG.EXEC_LINK) : "");
+    const defaultGasUrl = (typeof getFallbackGasUrl === 'function') ? getFallbackGasUrl() : "https://script.google.com/macros/s/AKfycbx-QE31idTvmhqH9FkDY2eqqA1Mpkwpo2nsAdS5yvTrmuXjmrNhTwz9Rc6v0eeFxkA/exec";
     if (!s.link_exec || s.link_exec.trim() === "") {
         s.link_exec = defaultGasUrl;
     }
-    const finalGasUrl = s.link_exec || defaultGasUrl || localStorage.getItem('sidimas_api_url') || "";
+    const finalGasUrl = (s.link_exec && s.link_exec.trim() !== "") ? s.link_exec.trim() : defaultGasUrl;
+    s.link_exec = finalGasUrl;
+    API_URL = finalGasUrl;
+    try { localStorage.setItem('sidimas_api_url', finalGasUrl); } catch (e) { }
     $('#inLinkExec, #inApiUrl, #syncLinkExec').val(finalGasUrl);
-
-    // Setel URL API (Google Apps Script) jika tersedia di pengaturan
-    if (finalGasUrl && finalGasUrl.trim() !== "") {
-        API_URL = finalGasUrl.trim();
-        try { localStorage.setItem('sidimas_api_url', API_URL); } catch (e) { }
-    }
 
 
     if (!$('input[name="ttdNama"]').val()) $('input[name="ttdNama"]').val(s.kepsek_nama);
