@@ -410,32 +410,40 @@ function gantiFormSurat() {
         $('#box-tembusan').addClass('d-none').find('textarea').prop('disabled', true);
     }
 
-    // Auto-fill Kode Klasifikasi HANYA jika belum dipilih user (bukan override pilihan user)
+    // Auto-fill Kode Klasifikasi ke 400.3.8 secara default jika belum dipilih user
     const kodeSekarang = $('#selKodeArsip').val();
     if (!kodeSekarang) {
-        let keywords = '';
-        if (t.includes('undangan')) keywords = 'undangan';
-        else if (t.includes('keputusan') || t.includes('sk')) keywords = 'keputusan';
-        else if (t.includes('perjalanan') || t.includes('sppd')) keywords = 'perjalanan';
-        else if (t.includes('tugas') || t.includes('spt')) keywords = 'tugas';
-        else if (t.includes('keterangan') || t.includes('suket')) keywords = 'keterangan';
-        else if (t.includes('izin')) keywords = 'izin';
-        else if (t.includes('nota')) keywords = 'nota';
-        else if (t.includes('pengantar')) keywords = 'pengantar';
+        let targetKode = '400.3.8';
+        let found = false;
+        $('#selKodeArsip option').each(function () {
+            const val = $(this).val();
+            if (val === targetKode || val.startsWith(targetKode)) {
+                $('#selKodeArsip').val(val).trigger('change');
+                found = true;
+                return false;
+            }
+        });
+        if (!found) {
+            let keywords = '';
+            if (t.includes('undangan')) keywords = 'undangan';
+            else if (t.includes('keputusan') || t.includes('sk')) keywords = 'keputusan';
+            else if (t.includes('perjalanan') || t.includes('sppd')) keywords = 'perjalanan';
+            else if (t.includes('tugas') || t.includes('spt')) keywords = 'tugas';
+            else if (t.includes('keterangan') || t.includes('suket')) keywords = 'keterangan';
+            else if (t.includes('izin')) keywords = 'izin';
+            else if (t.includes('nota')) keywords = 'nota';
+            else if (t.includes('pengantar')) keywords = 'pengantar';
 
-        if (keywords) {
-            let found = false;
-            $('#selKodeArsip option').each(function () {
-                if ($(this).text().toLowerCase().includes(keywords)) {
-                    $('#selKodeArsip').val($(this).val()).trigger('change');
-                    found = true;
-                    return false;
-                }
-            });
-            // Jika tidak ditemukan, biarkan kosong (jangan paksa reset jika sudah isi)
-            if (!found) $('#selKodeArsip').val('').trigger('change');
+            if (keywords) {
+                $('#selKodeArsip option').each(function () {
+                    if ($(this).text().toLowerCase().includes(keywords)) {
+                        $('#selKodeArsip').val($(this).val()).trigger('change');
+                        found = true;
+                        return false;
+                    }
+                });
+            }
         }
-        // Jika tidak ada keywords, biarkan kosong tapi jangan override pilihan user
     }
 
     loadAutoNumber();
