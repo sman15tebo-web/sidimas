@@ -167,25 +167,65 @@ function initTenantRouting() {
     }
     // Mode Online Browser (Multi-tenant)
     const urlParams = new URLSearchParams(window.location.search);
-    let tenantId = urlParams.get('id');
 
-    if (tenantId) {
-        tenantId = tenantId.toLowerCase();
-        if (DAFTAR_BACKEND[tenantId]) {
-            API_URL = DAFTAR_BACKEND[tenantId];
-            localStorage.setItem('sidimas_api_url', API_URL);
-        } else {
-            showInvalidTenantError();
-            return false;
-        }
-    } else {
-        API_URL = localStorage.getItem('sidimas_api_url');
-        let isValid = Object.values(DAFTAR_BACKEND).includes(API_URL);
-        if (!API_URL || !isValid) {
-            API_URL = DAFTAR_BACKEND["demo"] || "";
-            if (API_URL) localStorage.setItem('sidimas_api_url', API_URL);
-        }
+    // 1. Prioritas Utama: Parameter langsung di URL (?exec=...)
+    const paramExec = urlParams.get('exec');
+    if (paramExec && paramExec.startsWith('http')) {
+        API_URL = paramExec;
+        localStorage.setItem('sidimas_api_url', paramExec);
+        return true;
     }
+
+    // 2. Berdasarkan Parameter Kode Tenant (?id=...)
+    const paramTenant = urlParams.get('id');
+    if (paramTenant) {
+        const cleanTenant = paramTenant.trim().toLowerCase();
+        if (DAFTAR_BACKEND[cleanTenant]) {
+            API_URL = DAFTAR_BACKEND[cleanTenant];
+            localStorage.setItem('sidimas_api_url', API_URL);
+            localStorage.setItem('sidimas_active_tenant', cleanTenant);
+        } else {
+            // Jika tenant tidak terdaftar tapi sudah ada API_URL tersimpan, tetap izinkan
+            const savedUrl = localStorage.getItem('sidimas_api_url');
+            if (savedUrl && savedUrl.startsWith('http')) {
+                API_URL = savedUrl;
+            } else {
+                showInvalidTenantError();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 3. Link Exec yang Tersimpan di Pengaturan
+    const savedApiUrl = localStorage.getItem('sidimas_api_url');
+    if (savedApiUrl && savedApiUrl.startsWith('http')) {
+        API_URL = savedApiUrl;
+        return true;
+    }
+
+    // 4. Deteksi dari Tenant / Nama Sekolah yang Tersimpan
+    const savedTenant = localStorage.getItem('sidimas_active_tenant');
+    if (savedTenant && DAFTAR_BACKEND[savedTenant]) {
+        API_URL = DAFTAR_BACKEND[savedTenant];
+        return true;
+    }
+
+    try {
+        const sidimasSettings = JSON.parse(localStorage.getItem('sidimas_settings') || '{}');
+        const schoolName = sidimasSettings.nama_sekolah || sidimasSettings.nama_instansi || '';
+        if (schoolName) {
+            const slug = schoolName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (DAFTAR_BACKEND[slug]) {
+                API_URL = DAFTAR_BACKEND[slug];
+                localStorage.setItem('sidimas_active_tenant', slug);
+                return true;
+            }
+        }
+    } catch (e) { }
+
+    // 5. Fallback ke URL Backend default
+    API_URL = getFallbackGasUrl();
     return true;
 }
 
