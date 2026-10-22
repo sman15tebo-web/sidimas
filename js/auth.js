@@ -478,20 +478,6 @@ function processFile(id) {
 
 
 
-/* --- BUKA FOLDER TEMPLATE DI FILE EXPLORER --- */
-async function openTemplatesFolder() {
-    try {
-        const res = await fetch('/api/templates-path');
-        const data = await res.json();
-        // Buka folder menggunakan Electron shell (tersedia karena nodeIntegration: true)
-        const { shell } = require('electron');
-        const err = await shell.openPath(data.path);
-        if (err) { Swal.fire('Error', 'Tidak dapat membuka folder: ' + err, 'error'); }
-    } catch (e) {
-        Swal.fire('Error', 'Gagal membuka folder template: ' + e.message, 'error');
-    }
-}
-
 function doBackup() {
     Swal.fire({ title: 'Backup Online?', text: "Data akan disalin ke Spreadsheet baru di Google Drive (memerlukan koneksi ke GAS).", icon: 'info', showCancelButton: true, confirmButtonText: 'Ya, Backup Online', cancelButtonText: 'Batal' }).then((result) => {
         if (result.isConfirmed) {
