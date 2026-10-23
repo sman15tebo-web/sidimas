@@ -319,42 +319,66 @@
 
         <!-- MOBILE BOTTOM NAVIGATION -->
         <div class="mobile-bottom-nav d-md-none">
+            <!-- 1. Beranda / Dashboard (Semua Role) -->
             <a class="nav-item-mobile active" onclick="nav('home', this)">
                 <i class="fas fa-chart-pie"></i>
                 <span>Beranda</span>
             </a>
-            <a class="nav-item-mobile" onclick="nav('inbox', this)">
+
+            <!-- 2. Surat Masuk (Semua Role) -->
+            <a class="nav-item-mobile" onclick="nav('inbox', this)" style="position: relative;">
                 <i class="fas fa-inbox"></i>
                 <span>Masuk</span>
                 <span id="badgeInboxMobile" class="position-absolute translate-middle badge rounded-pill bg-danger"
                     style="top: 5px; right: 20%; font-size: 0.55rem; display: none;">0</span>
             </a>
-            <a class="nav-item-mobile btn-buat-surat non-kepsek" onclick="nav('buat', this)"
+
+            <!-- 3. TOMBOL TENGAH NON-KEPSEK (Admin & Staf): BUAT SURAT -->
+            <a class="nav-item-mobile btn-center-action btn-buat-surat non-kepsek" onclick="nav('buat', this)"
                 style="position: relative;">
                 <div class="icon-wrapper">
                     <i class="fas fa-plus"></i>
                 </div>
                 <span>Buat</span>
                 <span id="badgeBuatSuratMobile" class="position-absolute translate-middle badge rounded-pill bg-danger"
-                    style="top: 5px; right: 20%; font-size: 0.55rem; display: none;">0</span>
+                    style="top: -42px; right: calc(50% - 28px); font-size: 0.6rem; display: none;">0</span>
             </a>
-            <a class="nav-item-mobile kepsek-only" style="display: none;" onclick="nav('kendali', this)">
-                <i class="fas fa-stamp"></i>
+
+            <!-- 3. TOMBOL TENGAH KHUSUS KEPALA SEKOLAH: KENDALI SURAT -->
+            <a class="nav-item-mobile btn-center-action btn-kendali-kepsek kepsek-only" onclick="nav('kendali', this)"
+                style="position: relative; display: none;">
+                <div class="icon-wrapper icon-wrapper-kendali">
+                    <i class="fas fa-stamp"></i>
+                </div>
                 <span>Kendali</span>
                 <span id="badgeKendaliMobile" class="position-absolute translate-middle badge rounded-pill bg-danger"
-                    style="top: 5px; right: 20%; font-size: 0.55rem; display: none;">0</span>
+                    style="top: -42px; right: calc(50% - 28px); font-size: 0.6rem; display: none;">0</span>
             </a>
+
+            <!-- 4. Agenda Surat (Semua Role) -->
             <a class="nav-item-mobile" onclick="nav('agenda', this)">
                 <i class="fas fa-folder-open"></i>
                 <span>Agenda</span>
             </a>
+
+            <!-- 5. Profil Saya (Khusus Kepsek) -->
             <a class="nav-item-mobile kepsek-only" style="display: none;" onclick="nav('profil-kepsek', this)">
                 <i class="fas fa-user-circle"></i>
                 <span>Profil</span>
             </a>
+
+            <!-- 5. Data Referensi (Khusus Admin) -->
             <a class="nav-item-mobile admin-only" onclick="nav('referensi', this)">
                 <i class="fas fa-database"></i>
                 <span>Data</span>
+            </a>
+
+            <!-- 5. Kendali Status Naskah (Khusus Staf) -->
+            <a class="nav-item-mobile staff-only" style="display: none;" onclick="nav('kendali', this)">
+                <i class="fas fa-tasks"></i>
+                <span>Status</span>
+                <span id="badgeKendaliStafMobile" class="position-absolute translate-middle badge rounded-pill bg-danger"
+                    style="top: 5px; right: 20%; font-size: 0.55rem; display: none;">0</span>
             </a>
         </div>
 
@@ -3058,34 +3082,6 @@
                     onclick="modalPrivasi()">Kebijakan Privasi</a> | Created by : <a
                     href='https://www.sman15tebo.sch.id' target="_blank" style="color:blue">Pariyanto</a></div>
         </div>
-    </div>
-
-    <div class="mobile-bottom-nav d-md-none">
-        <a class="nav-item-mobile active" onclick="nav('home', this)">
-            <i class="fas fa-chart-pie"></i>
-            <span>Dashboard</span>
-        </a>
-        <a class="nav-item-mobile" onclick="nav('inbox', this)" style="position: relative;">
-            <i class="fas fa-inbox"></i>
-            <span>Srt Masuk</span>
-            <span id="badgeInboxMobile" class="badge bg-danger rounded-circle text-white"
-                style="position: absolute; top: 0; right: 10px; font-size: 0.7em; display: none; padding: 0.25em 0.4em;">0</span>
-        </a>
-        <a class="nav-item-mobile btn-buat-surat" onclick="nav('buat', this)">
-            <div class="icon-wrapper"><i class="fas fa-magic"></i></div>
-            <span>Buat Surat</span>
-        </a>
-        <a class="nav-item-mobile" onclick="nav('agenda', this)">
-            <i class="fas fa-calendar-alt"></i>
-            <span>Agenda</span>
-        </a>
-        <a class="nav-item-mobile admin-only" onclick="nav('referensi', this)">
-            <i class="fas fa-database"></i>
-            <span>Referensi</span>
-        </a>
-    </div>
-    </div>
-
     </div> <!-- TUTUP VIEW-DASHBOARD -->
 
     <div class="modal fade" id="modalSurat">
