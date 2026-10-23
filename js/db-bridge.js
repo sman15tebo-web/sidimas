@@ -107,10 +107,10 @@ const DAFTAR_BACKEND = {
 function getFallbackGasUrl() {
     let url = "";
     if (typeof window !== 'undefined' && window.APP_CONFIG) {
-        url = window.APP_CONFIG.gasUrl || window.APP_CONFIG.linkExec || window.APP_CONFIG.EXEC_LINK || "";
+        url = window.APP_CONFIG.linkExec || window.APP_CONFIG.gasUrl || window.APP_CONFIG.EXEC_LINK || "";
     }
     if (!url && typeof APP_CONFIG !== 'undefined') {
-        url = APP_CONFIG.gasUrl || APP_CONFIG.linkExec || APP_CONFIG.EXEC_LINK || "";
+        url = APP_CONFIG.linkExec || APP_CONFIG.gasUrl || APP_CONFIG.EXEC_LINK || "";
     }
     if (!url) {
         url = localStorage.getItem('sidimas_api_url') || "";
@@ -122,7 +122,9 @@ function getFallbackGasUrl() {
 }
 window.getFallbackGasUrl = getFallbackGasUrl;
 
-let API_URL = localStorage.getItem('sidimas_api_url') || getFallbackGasUrl();
+let API_URL = isElectron
+    ? getFallbackGasUrl()
+    : (localStorage.getItem('sidimas_api_url') || getFallbackGasUrl());
 if (API_URL.includes('AKfycbx-QE31idTvmhqH9FkDY2eqqA1Mpkwpo2nsAdS5yvTrmuXjmrNhTwz9Rc6v0eeFxkA')) {
     API_URL = getFallbackGasUrl();
     localStorage.setItem('sidimas_api_url', API_URL);
@@ -259,4 +261,3 @@ if (!isElectron && 'serviceWorker' in navigator && location.protocol.startsWith(
 
 let dbMasuk = [];
 let dbKeluar = [];
-
