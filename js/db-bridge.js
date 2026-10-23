@@ -97,7 +97,7 @@ if (isElectron) {
    API URL & JEMBATAN KE GOOGLE APPS SCRIPT (SINKRONISASI)
    ============================================================ */
 const DAFTAR_BACKEND = {
-    "sman15tebo": "https://script.google.com/macros/s/AKfycbwcxgQbZyfy37oeGnxQiUgAJUt6WVdmNHJI50ZJDfMAJEOV_6v4kasgXbjMqqfyR84/exec",
+    "sman15tebo": "https://script.google.com/macros/s/AKfycbwLvskE5mzIqwp7Za0LF0e38KHbGbqimhIlq2dEOyozf6Fhf8o0FPBqk0x2fvKTh8ge/exec",
     "smkn1kotaternate": "https://script.google.com/macros/s/AKfycbwBZsf0b4XTh5h6sRDjCiUp-9YwAFsjK-v6BQYoh7DBwZu1JB4CbhoXSQ7ZY-AEr8r0/exec",
     "sman9kotajambi": "https://script.google.com/macros/s/AKfycbysVuW9crRjHAaARjFWFwHnV4qXzrLpxoLt4dsZAhotPqn5_AMR3CM0CBsRq9N1oNA/exec",
     "sman6tanjungjabungbarat": "https://script.google.com/macros/s/AKfycbzTUtNRp-hSeST6e0zgiEyi4BO7c-3YHPILalIai9b2ncvd0hyg4ArY10F07FOVoDm0/exec",
