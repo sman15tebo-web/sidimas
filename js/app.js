@@ -127,10 +127,13 @@ function renderAppAttributes(s) {
     $('#inKepsekPangkat').val(s.kepsek_pangkat || ''); $('#inKotaSurat').val(s.kota_surat || ''); $('#inKodeLembaga').val(s.kode_lembaga || '');
 
     const defaultGasUrl = (typeof getFallbackGasUrl === 'function') ? getFallbackGasUrl() : "https://script.google.com/macros/s/AKfycbwcxgQbZyfy37oeGnxQiUgAJUt6WVdmNHJI50ZJDfMAJEOV_6v4kasgXbjMqqfyR84/exec";
-    if (!s.link_exec || s.link_exec.trim() === "" || s.link_exec.includes('AKfycbx-QE31idTvmhqH9FkDY2eqqA1Mpkwpo2nsAdS5yvTrmuXjmrNhTwz9Rc6v0eeFxkA')) {
+    const configuredDesktopUrl = typeof isElectron !== 'undefined' && isElectron ? defaultGasUrl : '';
+    if (configuredDesktopUrl) {
+        s.link_exec = configuredDesktopUrl;
+    } else if (!s.link_exec || s.link_exec.trim() === "" || s.link_exec.includes('AKfycbx-QE31idTvmhqH9FkDY2eqqA1Mpkwpo2nsAdS5yvTrmuXjmrNhTwz9Rc6v0eeFxkA')) {
         s.link_exec = defaultGasUrl;
     }
-    const finalGasUrl = (s.link_exec && s.link_exec.trim() !== "") ? s.link_exec.trim() : defaultGasUrl;
+    const finalGasUrl = configuredDesktopUrl || ((s.link_exec && s.link_exec.trim() !== "") ? s.link_exec.trim() : defaultGasUrl);
     s.link_exec = finalGasUrl;
     settingsCache.link_exec = finalGasUrl;
     API_URL = finalGasUrl;
