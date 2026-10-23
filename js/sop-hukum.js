@@ -13,7 +13,7 @@
 
 const DEFAULT_SOP_WORD_PATH = './Draft_SOP_Persuratan_Sekolah.doc';
 const DEFAULT_SOP_WORD_FILENAME = 'Draft_SOP_Persuratan_Sekolah.doc';
-const DEFAULT_SOP_DEFAULT_PDF = './SOP Persuratan SMAN 15 Tebo OK.pdf';
+
 
 const DEFAULT_DASAR_HUKUM_SIDIMAS = [
     {
@@ -436,7 +436,7 @@ function updateSopTabUI() {
             };
         }
 
-        // Mode: Berkas PDF Kustom Resmi Aktif
+        // Mode: Berkas PDF SOP Resmi Aktif
         const fileName = customSopMeta.name || 'SOP_Persuratan_Resmi.pdf';
         const locText = (customSopMeta.origin === 'offline_local' || (typeof isElectron !== 'undefined' && isElectron && customSopData))
             ? 'Tersimpan Offline Lokal'
@@ -444,39 +444,34 @@ function updateSopTabUI() {
 
         if (activeMetaEl) {
             activeMetaEl.classList.remove('d-none');
-            activeMetaEl.innerHTML = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 me-1"><i class="fas fa-check-circle me-1"></i>SOP Khusus Aktif</span> <b>${fileName}</b> <span class="text-muted">(${customSopMeta.sizeText || 'PDF'} • ${customSopMeta.updatedAt || 'Tersimpan'} • ${locText})</span>`;
+            activeMetaEl.innerHTML = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 me-1"><i class="fas fa-check-circle me-1"></i>SOP Aktif</span> <b>${fileName}</b> <span class="text-muted">(${customSopMeta.sizeText || 'PDF'} • ${customSopMeta.updatedAt || 'Tersimpan'} • ${locText})</span>`;
         }
         if (activeBadgeEl) {
-            activeBadgeEl.textContent = 'Dokumen Kustom Resmi (PDF)';
+            activeBadgeEl.textContent = 'Dokumen SOP Resmi (PDF)';
             activeBadgeEl.className = 'badge rounded-pill bg-success text-white py-1 px-2.5';
         }
 
-        // Tampilkan tombol Lihat (Merah) dan tombol X Hapus
+        // Tampilkan tombol Lihat dan tombol X Hapus HANYA JIKA ADA FILE YANG DIUNGGAH
         if (btnLihatEl) {
             btnLihatEl.classList.remove('d-none');
             btnLihatEl.className = 'btn btn-outline-danger btn-sm fw-semibold shadow-xs';
-            btnLihatEl.innerHTML = '<i class="fas fa-eye me-1"></i>Lihat SOP';
-            btnLihatEl.title = 'Lihat dokumen SOP resmi yang diunggah';
+            btnLihatEl.innerHTML = '<i class="fas fa-eye me-1"></i>Lihat';
+            btnLihatEl.title = 'Lihat pratinjau dokumen SOP resmi';
         }
         if (btnHapusEl) btnHapusEl.classList.remove('d-none');
     } else {
-        // Mode: Menggunakan Berkas SOP Standar Resmi Satuan Pendidikan
+        // Mode: Belum ada file SOP PDF yang diunggah
         if (activeMetaEl) {
-            activeMetaEl.classList.remove('d-none');
-            activeMetaEl.innerHTML = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-1"><i class="fas fa-info-circle me-1"></i>SOP Standar</span> <b>SOP Persuratan SMAN 15 Tebo (Baku)</b> <span class="text-muted">(Standar Resmi SiDiMAS)</span>`;
+            activeMetaEl.classList.add('d-none');
+            activeMetaEl.innerHTML = '';
         }
         if (activeBadgeEl) {
-            activeBadgeEl.textContent = 'SOP Standar Resmi';
-            activeBadgeEl.className = 'badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-1 px-2.5';
+            activeBadgeEl.textContent = 'Belum Ada SOP PDF';
+            activeBadgeEl.className = 'badge rounded-pill bg-secondary bg-opacity-10 text-secondary border py-1 px-2.5';
         }
 
-        // Tombol Lihat SOP tetap AKTIF dan BISA DIKLIK untuk melihat SOP Standar!
-        if (btnLihatEl) {
-            btnLihatEl.classList.remove('d-none');
-            btnLihatEl.className = 'btn btn-outline-primary btn-sm fw-semibold shadow-xs';
-            btnLihatEl.innerHTML = '<i class="fas fa-eye me-1"></i>Lihat SOP Standar';
-            btnLihatEl.title = 'Lihat dokumen SOP persuratan standar sekolah';
-        }
+        // Sembunyikan total tombol Lihat & Hapus jika belum ada dokumen yang diunggah
+        if (btnLihatEl) btnLihatEl.classList.add('d-none');
         if (btnHapusEl) btnHapusEl.classList.add('d-none');
     }
 
@@ -804,8 +799,8 @@ window.getActiveSopUrl = function () {
         return customUrl;
     }
 
-    // 4. Fallback ke dokumen SOP PDF bawaan resmi persuratan
-    return DEFAULT_SOP_DEFAULT_PDF;
+    // 4. Jika belum ada dokumen yang diunggah, kembalikan null (tidak ada SOP cadangan)
+    return null;
 };
 
 window.downloadTemplateWord = function () {
@@ -839,7 +834,7 @@ window.previewSopPdf = async function () {
 
     // Jika di HP / browser baru dan URL belum tersimpan, tarik langsung dari Google Drive
     let pdfUrl = getActiveSopUrl();
-    if ((!pdfUrl || pdfUrl === DEFAULT_SOP_DEFAULT_PDF) && isOnline && typeof syncSopTwoWay === 'function') {
+    if (!pdfUrl && isOnline && typeof syncSopTwoWay === 'function') {
         try {
             await syncSopTwoWay();
             pdfUrl = getActiveSopUrl();
@@ -847,7 +842,11 @@ window.previewSopPdf = async function () {
     }
 
     if (!pdfUrl) {
-        downloadTemplateWord();
+        Swal.fire({
+            icon: 'info',
+            title: 'Belum Ada Dokumen SOP',
+            text: 'Dokumen SOP persuratan belum diunggah oleh pihak sekolah. Silakan unggah berkas SOP (format PDF) di menu Pengaturan.'
+        });
         return;
     }
 
@@ -886,7 +885,11 @@ window.previewSopPdf = async function () {
 window.downloadSopPdf = function () {
     const pdfUrl = getActiveSopUrl();
     if (!pdfUrl) {
-        downloadTemplateWord();
+        Swal.fire({
+            icon: 'info',
+            title: 'Belum Ada Dokumen SOP',
+            text: 'Dokumen SOP persuratan belum diunggah oleh pihak sekolah. Silakan unggah berkas SOP (format PDF) di menu Pengaturan.'
+        });
         return;
     }
 
