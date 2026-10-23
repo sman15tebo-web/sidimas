@@ -33,6 +33,15 @@ textarea {
     display: none !important;
 }
 
+.template-choice-label {
+    display: block;
+}
+
+.template-guideline {
+    font-size: inherit;
+    font-weight: inherit;
+}
+
 /* ============================================================
    KONTROL TAMPILAN HYBRID: ONLINE WEB vs DESKTOP OFFLINE
    ============================================================ */
@@ -453,6 +462,15 @@ div:where(.swal2-container) {
 }
 
 @media (max-width: 768px) {
+    .template-choice-label {
+        font-size: 0.8rem;
+        line-height: 1.35;
+    }
+
+    .template-guideline {
+        font-size: 0.72rem;
+        font-weight: 400;
+    }
 
     /* Sembunyikan sidebar bawaan di HP */
     .sidebar {
