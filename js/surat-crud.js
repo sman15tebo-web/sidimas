@@ -1175,6 +1175,10 @@ async function loadInboxTable() {
 function showDetailSuratEksternal(id) {
     const record = externalInboxRows.find(row => String(row.id) === String(id));
     if (!record) return Swal.fire('Tidak Ditemukan', 'Data surat tidak ada di daftar saat ini. Muat ulang inbox.', 'warning');
+    if (externalPreviewBlobUrl) {
+        URL.revokeObjectURL(externalPreviewBlobUrl);
+        externalPreviewBlobUrl = null;
+    }
     $('#vExtNama').text(record.namaPengirim || '-');
     $('#vExtEmail').text(record.emailPengirim || '-');
     $('#vExtNoHp').text(record.noHpPengirim || '-');
@@ -1214,6 +1218,7 @@ function showDetailSuratEksternal(id) {
         : '');
     const fileContainer = document.getElementById('vExtFileContainer');
     fileContainer.replaceChildren();
+    fileContainer.classList.add('d-flex', 'align-items-center', 'justify-content-center');
     if (fileUrl) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -1248,15 +1253,50 @@ function showDetailSuratEksternal(id) {
                 if (externalPreviewBlobUrl) URL.revokeObjectURL(externalPreviewBlobUrl);
                 externalPreviewBlobUrl = URL.createObjectURL(blob);
                 const mimeType = fileInfo.mimeType || blob.type;
-                const typeBadge = mimeType === 'application/pdf' ? 'PDF' : mimeType.startsWith('image/') ? 'GAMBAR' : 'BERKAS';
-                bootstrap.Modal.getInstance(document.getElementById('modalDetailEksternal'))?.hide();
-                openFilePreviewModal({
-                    title: `Lampiran Surat ${record.noSurat || ''}`,
-                    typeBadge,
-                    dataUrl: externalPreviewBlobUrl,
-                    blob,
-                    filename: fileInfo.name || 'lampiran'
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-eye me-2"></i>Pratinjau Lampiran';
+                const preview = document.createElement('div');
+                preview.className = 'w-100 h-100 d-flex flex-column';
+                preview.style.minHeight = '320px';
+                preview.style.height = '70vh';
+
+                const toolbar = document.createElement('div');
+                toolbar.className = 'd-flex justify-content-end align-items-center bg-dark p-1';
+                const closeButton = document.createElement('button');
+                closeButton.type = 'button';
+                closeButton.className = 'btn btn-sm btn-outline-light';
+                closeButton.innerHTML = '<i class="fas fa-times me-1"></i>Tutup Pratinjau';
+                closeButton.addEventListener('click', () => {
+                    if (externalPreviewBlobUrl) URL.revokeObjectURL(externalPreviewBlobUrl);
+                    externalPreviewBlobUrl = null;
+                    preview.remove();
+                    button.hidden = false;
+                    button.disabled = false;
+                    fileContainer.classList.add('d-flex', 'align-items-center', 'justify-content-center');
                 });
+                toolbar.appendChild(closeButton);
+                preview.appendChild(toolbar);
+
+                if (mimeType.startsWith('image/')) {
+                    const image = document.createElement('img');
+                    image.src = externalPreviewBlobUrl;
+                    image.alt = `Lampiran surat ${record.noSurat || ''}`;
+                    image.className = 'flex-grow-1 w-100 bg-dark';
+                    image.style.minHeight = '0';
+                    image.style.objectFit = 'contain';
+                    preview.appendChild(image);
+                } else {
+                    const frame = document.createElement('iframe');
+                    frame.src = externalPreviewBlobUrl;
+                    frame.title = `Lampiran surat ${record.noSurat || ''}`;
+                    frame.className = 'flex-grow-1 w-100 bg-white border-0';
+                    frame.style.minHeight = '0';
+                    preview.appendChild(frame);
+                }
+
+                fileContainer.classList.remove('d-flex', 'align-items-center', 'justify-content-center');
+                button.hidden = true;
+                fileContainer.appendChild(preview);
             } catch (error) {
                 Swal.fire('Gagal Membuka Lampiran', error.message || String(error), 'error');
                 button.disabled = false;
