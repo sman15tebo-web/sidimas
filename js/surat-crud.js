@@ -2594,8 +2594,12 @@ function openFilePreviewModal(opts) {
 
     // Set iframe src + tombol Buka PDF — PERSIS CARA SIBUKINSTAL
     if (typeBadge === 'DOCX') {
-        $('#pdfPreviewFrame').addClass('d-none');
-        $('#docxPreviewContainer').removeClass('d-none').html('<div class="text-center mt-5"><div class="spinner-border text-primary"></div><p>Memuat Dokumen Word...</p></div>');
+        if (inlineTarget) {
+            inlineTarget.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div><p>Memuat Dokumen Word...</p></div>';
+        } else {
+            $('#pdfPreviewFrame').addClass('d-none');
+            $('#docxPreviewContainer').removeClass('d-none').html('<div class="text-center mt-5"><div class="spinner-border text-primary"></div><p>Memuat Dokumen Word...</p></div>');
+        }
 
         const renderDocx = async () => {
             try {
@@ -2605,7 +2609,7 @@ function openFilePreviewModal(opts) {
                     const res = await fetch(dataUrl);
                     blob = await res.blob();
                 }
-                const container = document.getElementById('docxPreviewContainer');
+                const container = inlineTarget || document.getElementById('docxPreviewContainer');
                 if (typeof docx !== 'undefined' && docx.renderAsync) {
                     await docx.renderAsync(blob, container);
                 } else {
@@ -2617,22 +2621,28 @@ function openFilePreviewModal(opts) {
         };
         renderDocx();
     } else if (typeBadge.toUpperCase() === 'EXCEL') {
-        $('#pdfPreviewFrame').addClass('d-none');
-        $('#docxPreviewContainer').removeClass('d-none').html('<div class="text-center mt-5"><div class="spinner-border text-primary"></div><p>Memuat lembar kerja...</p></div>');
+        if (inlineTarget) {
+            inlineTarget.innerHTML = '<div class="text-center p-4"><div class="spinner-border text-primary"></div><p>Memuat lembar kerja...</p></div>';
+        } else {
+            $('#pdfPreviewFrame').addClass('d-none');
+            $('#docxPreviewContainer').removeClass('d-none').html('<div class="text-center mt-5"><div class="spinner-border text-primary"></div><p>Memuat lembar kerja...</p></div>');
+        }
         const renderExcel = async () => {
             try {
                 let blob = currentPreviewBlob;
                 if (!blob && dataUrl.startsWith('data:')) blob = dataUriToBlob(dataUrl);
                 else if (!blob) blob = await (await fetch(dataUrl)).blob();
-                await renderExcelPreview(blob, document.getElementById('docxPreviewContainer'));
+                await renderExcelPreview(blob, inlineTarget || document.getElementById('docxPreviewContainer'));
             } catch (error) {
-                document.getElementById('docxPreviewContainer').innerHTML = `<div class="alert alert-danger m-4">Gagal memuat lembar kerja: ${error.message}</div>`;
+                (inlineTarget || document.getElementById('docxPreviewContainer')).innerHTML = `<div class="alert alert-danger m-4">Gagal memuat lembar kerja: ${error.message}</div>`;
             }
         };
         renderExcel();
     } else {
-        $('#docxPreviewContainer').addClass('d-none');
-        $('#pdfPreviewFrame').removeClass('d-none').attr('src', blobUrl);
+        if (!inlineTarget) {
+            $('#docxPreviewContainer').addClass('d-none');
+            $('#pdfPreviewFrame').removeClass('d-none').attr('src', blobUrl);
+        }
     }
 
     $('#btnOpenPdf').attr('href', blobUrl);
@@ -2644,6 +2654,8 @@ function openFilePreviewModal(opts) {
         inlineTarget.classList.remove('d-none');
         inlineTarget.style.display = 'block';
         inlineTarget.style.height = '62vh';
+
+        if (typeBadge === 'DOCX' || typeBadge.toUpperCase() === 'EXCEL') return;
 
         if (typeBadge === 'GAMBAR') {
             inlineTarget.innerHTML = `
@@ -2675,8 +2687,6 @@ async function viewFileSurat(jenis, index) {
     const row = getDataByIndex(jenis, index);
     if (!row) return;
     const isMasuk = (jenis === 'masuk');
-    const noSurat = isMasuk ? (row[4] || 'Surat Masuk') : (row[3] || 'Surat Keluar');
-    const perihal = isMasuk ? (row[5] || '') : (row[4] || '');
     let fileUrl = isMasuk ? row[9] : row[8];
     const recordId = row[0];
 
@@ -2714,24 +2724,11 @@ async function viewFileSurat(jenis, index) {
         return;
     }
 
-    let title = `${noSurat}` + (perihal ? ` - ${perihal}` : '');
-    let typeBadge = 'BERKAS';
-    if (fileUrl.startsWith('data:application/pdf') || /\.pdf($|\?)/i.test(fileUrl)) {
-        typeBadge = 'PDF';
-    } else if (fileUrl.startsWith('data:image/') || /\.(jpe?g|png|gif|webp)($|\?)/i.test(fileUrl)) {
-        typeBadge = 'GAMBAR';
-    } else if (fileUrl.includes('word') || /\.docx?($|\?)/i.test(fileUrl)) {
-        typeBadge = 'DOCX';
-    } else if (fileUrl.includes('sheet') || /\.xlsx?($|\?)/i.test(fileUrl)) {
-        typeBadge = 'EXCEL';
-    }
-
-    openFilePreviewModal({
-        title: title,
-        typeBadge: typeBadge,
-        dataUrl: fileUrl,
-        filename: `Berkas_${jenis}_${noSurat.replace(/[^a-zA-Z0-9_\-]/g, '_')}`
-    });
+    const detailRow = row.slice();
+    detailRow[isMasuk ? 9 : 8] = fileUrl;
+    modalInput(jenis, 'view');
+    fillForm(jenis, detailRow);
+    previewFromModalSurat(jenis);
 }
 
 /* ================= EXPORT & CRUD ================= */
@@ -3456,6 +3453,3 @@ $(function () {
         currentPreviewUrl = '';
     });
 });
-
-
-
