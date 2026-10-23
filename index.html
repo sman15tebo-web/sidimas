@@ -4351,13 +4351,21 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                         aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-0 modal-sop-body" style="background: #525659;">
-                    <iframe id="iframeSOPViewer" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                <div class="modal-body p-0 modal-sop-body position-relative" style="background: #525659;">
+                    <div id="sopIframeLoader" class="position-absolute top-50 start-50 translate-middle text-center text-white px-3" style="z-index: 1;">
+                        <div class="spinner-border text-light mb-2" role="status"></div>
+                        <div class="small fw-semibold">Memuat dokumen SOP...</div>
+                        <div class="text-white-50 mt-1" style="font-size: 0.72rem;">Jika tampilan tidak muncul otomatis di ponsel Anda, silakan ketuk <b>Buka Layar Penuh</b> di bawah.</div>
+                    </div>
+                    <iframe id="iframeSOPViewer" src="" style="width: 100%; height: 100%; border: none; position: relative; z-index: 2;" onload="const el = document.getElementById('sopIframeLoader'); if (el) el.style.display='none';"></iframe>
                 </div>
                 <div class="modal-footer py-2 px-3 bg-light d-flex justify-content-between">
                     <small class="text-muted"><i class="fas fa-shield-alt text-success me-1"></i>Dokumen SOP Resmi
                         Satuan Pendidikan</small>
                     <div class="d-flex gap-2">
+                        <a id="btnBukaTabSop" href="#" target="_blank" class="btn btn-sm btn-outline-primary fw-bold">
+                            <i class="fas fa-external-link-alt me-1"></i>Buka Layar Penuh
+                        </a>
                         <button type="button" class="btn btn-sm btn-outline-danger" onclick="downloadSopPdf()">
                             <i class="fas fa-download me-1"></i>Unduh PDF
                         </button>
