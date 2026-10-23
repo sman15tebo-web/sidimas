@@ -521,14 +521,20 @@ div:where(.swal2-container) {
         transform: translateY(-3px);
     }
 
-    /* TOMBOL BUAT SURAT KHUSUS (DI TENGAH) */
-    .mobile-bottom-nav .btn-buat-surat {
+    /* TOMBOL AKSI TENGAH KHUSUS (DI TENGAH - BUAT SURAT & KENDALI KEPSEK) */
+    .mobile-bottom-nav .btn-center-action {
         position: relative;
+    }
+
+    .mobile-bottom-nav .btn-buat-surat {
         color: #198754 !important;
     }
 
-    .mobile-bottom-nav .btn-buat-surat .icon-wrapper {
-        background: linear-gradient(135deg, #198754, #20c997);
+    .mobile-bottom-nav .btn-kendali-kepsek {
+        color: #0d6efd !important;
+    }
+
+    .mobile-bottom-nav .btn-center-action .icon-wrapper {
         color: white;
         width: 55px;
         height: 55px;
@@ -536,21 +542,60 @@ div:where(.swal2-container) {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
+        font-size: 1.45rem;
         margin-bottom: 6px;
-        border: 5px solid #f0f2f5;
-        box-shadow: 0 -3px 10px rgba(25, 135, 84, 0.3);
+        border: 4px solid #ffffff;
         position: absolute;
-        top: -45px;
+        top: -42px;
+        left: 50%;
+        transform: translateX(-50%);
         transition: 0.3s;
     }
 
-    .mobile-bottom-nav .btn-buat-surat.active .icon-wrapper {
-        transform: scale(1.1);
+    .mobile-bottom-nav .btn-buat-surat .icon-wrapper {
+        background: linear-gradient(135deg, #198754, #20c997);
+        box-shadow: 0 -3px 10px rgba(25, 135, 84, 0.35);
     }
 
-    .mobile-bottom-nav .btn-buat-surat span {
-        margin-top: 25px;
+    .mobile-bottom-nav .btn-kendali-kepsek .icon-wrapper {
+        background: linear-gradient(135deg, #0d6efd, #0dcaf0);
+        box-shadow: 0 -3px 10px rgba(13, 110, 253, 0.35);
+    }
+
+    .mobile-bottom-nav .btn-center-action.active .icon-wrapper {
+        transform: translateX(-50%) scale(1.1);
+    }
+
+    .mobile-bottom-nav .btn-center-action span {
+        margin-top: 24px;
+    }
+
+    /* KONTROL VISIBILITAS MENU BAWAH BERDASARKAN ROLE */
+    body.role-kepsek .mobile-bottom-nav .kepsek-only {
+        display: flex !important;
+    }
+    body.role-kepsek .mobile-bottom-nav .non-kepsek,
+    body.role-kepsek .mobile-bottom-nav .admin-only,
+    body.role-kepsek .mobile-bottom-nav .staff-only {
+        display: none !important;
+    }
+
+    body.role-admin .mobile-bottom-nav .admin-only,
+    body.role-admin .mobile-bottom-nav .non-kepsek {
+        display: flex !important;
+    }
+    body.role-admin .mobile-bottom-nav .kepsek-only,
+    body.role-admin .mobile-bottom-nav .staff-only {
+        display: none !important;
+    }
+
+    body.role-staff .mobile-bottom-nav .staff-only,
+    body.role-staff .mobile-bottom-nav .non-kepsek {
+        display: flex !important;
+    }
+    body.role-staff .mobile-bottom-nav .kepsek-only,
+    body.role-staff .mobile-bottom-nav .admin-only {
+        display: none !important;
     }
 
     /* POSISI TOMBOL SCROLL TOP DINAIIKAN KE ATAS MENU BAWAH */
