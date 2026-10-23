@@ -214,6 +214,30 @@ body.is-electron .online-only,
 
 /* --- MEDIA QUERY KHUSUS HP --- */
 @media (max-width: 768px) {
+    #sop-hukum > .card-header,
+    #sop-hukum .card > .card-header {
+        align-items: flex-start !important;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    #sop-hukum .card-body > .row.align-items-end > div:last-child {
+        flex-wrap: wrap;
+        justify-content: flex-start !important;
+    }
+
+    #sop-hukum .card-body > .row.align-items-end > div:last-child .btn {
+        flex: 1 1 auto;
+    }
+
+    #sop-hukum .card-body > .row.align-items-center > div:first-child {
+        width: 100%;
+    }
+
+    #sop-hukum .card-body > .row.align-items-center > div:first-child .btn {
+        width: 100%;
+    }
+
     .btn-mobile-next {
         display: block;
         margin-top: 15px;
@@ -963,5 +987,3 @@ div:where(.swal2-container) {
     border-color: #dc3545 !important;
     background-color: rgba(220, 53, 69, 0.08) !important;
 }
-
-
