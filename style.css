@@ -13,7 +13,7 @@ body {
     display: block !important;
 }
 
-/* Mencegah zoom cubitan layar dan efek membal saat mentok */
+/* Cegah zoom cubit di HP, tetapi tetap izinkan scroll vertikal. */
 html,
 body {
     touch-action: pan-y;
@@ -254,10 +254,6 @@ body.is-electron .online-only,
     min-height: 100vh;
     position: relative;
     display: block;
-}
-
-#zoomControls {
-    display: none !important;
 }
 
 .sidebar {
