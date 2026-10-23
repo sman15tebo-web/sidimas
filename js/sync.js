@@ -205,7 +205,12 @@ async function applySyncResponse(res, pendingMasuk = [], pendingKeluar = [], pen
 }
 
 function openSyncModal() {
-    let savedUrl = localStorage.getItem('sidimas_api_url') || (typeof API_URL !== 'undefined' ? API_URL : "") || "";
+    let savedUrl;
+    if (typeof isElectron !== 'undefined' && isElectron) {
+        savedUrl = typeof getFallbackGasUrl === 'function' ? getFallbackGasUrl() : API_URL;
+    } else {
+        savedUrl = localStorage.getItem('sidimas_api_url') || (typeof API_URL !== 'undefined' ? API_URL : "") || "";
+    }
     if (!savedUrl || savedUrl.trim() === "") {
         try {
             const s = JSON.parse(localStorage.getItem('sidimas_settings') || "{}");
@@ -665,4 +670,3 @@ function modalHelpdesk() {
         confirmButtonColor: 'var(--main-color)'
     });
 }
-
