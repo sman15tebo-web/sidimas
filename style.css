@@ -256,6 +256,10 @@ body.is-electron .online-only,
     display: block;
 }
 
+#zoomControls {
+    display: none !important;
+}
+
 .sidebar {
     width: 250px;
     height: 100vh;
