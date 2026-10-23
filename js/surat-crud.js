@@ -1261,11 +1261,62 @@ function showDetailSuratEksternal(id) {
                 preview.style.height = '70vh';
 
                 const toolbar = document.createElement('div');
-                toolbar.className = 'd-flex justify-content-end align-items-center bg-dark p-1';
+                toolbar.className = 'd-flex justify-content-between align-items-center bg-dark p-1 gap-2';
+                const zoomControls = document.createElement('div');
+                zoomControls.className = 'd-flex align-items-center gap-1';
+                const zoomOut = document.createElement('button');
+                zoomOut.type = 'button';
+                zoomOut.className = 'btn btn-sm btn-outline-light';
+                zoomOut.title = 'Perkecil lampiran';
+                zoomOut.setAttribute('aria-label', 'Perkecil lampiran');
+                zoomOut.innerHTML = '<i class="fas fa-search-minus"></i>';
+                const zoomLabel = document.createElement('span');
+                zoomLabel.className = 'text-white small px-1';
+                const zoomIn = document.createElement('button');
+                zoomIn.type = 'button';
+                zoomIn.className = 'btn btn-sm btn-outline-light';
+                zoomIn.title = 'Perbesar lampiran';
+                zoomIn.setAttribute('aria-label', 'Perbesar lampiran');
+                zoomIn.innerHTML = '<i class="fas fa-search-plus"></i>';
+                const resetZoom = document.createElement('button');
+                resetZoom.type = 'button';
+                resetZoom.className = 'btn btn-sm btn-outline-light';
+                resetZoom.textContent = '100%';
+                resetZoom.title = 'Kembalikan ukuran normal';
                 const closeButton = document.createElement('button');
                 closeButton.type = 'button';
                 closeButton.className = 'btn btn-sm btn-outline-light';
                 closeButton.innerHTML = '<i class="fas fa-times me-1"></i>Tutup Pratinjau';
+                zoomControls.append(zoomOut, zoomLabel, zoomIn, resetZoom);
+                toolbar.append(zoomControls, closeButton);
+
+                const viewer = document.createElement('div');
+                viewer.className = 'flex-grow-1 w-100 bg-dark';
+                viewer.style.minHeight = '0';
+                viewer.style.overflow = 'auto';
+
+                let zoom = 1;
+                let zoomContent;
+                const updateZoom = () => {
+                    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+                    if (mimeType.startsWith('image/')) {
+                        zoomContent.style.width = `${zoom * 100}%`;
+                    } else {
+                        zoomContent.style.width = '100%';
+                        zoomContent.style.height = '100%';
+                        zoomContent.style.transform = `scale(${zoom})`;
+                    }
+                };
+                const changeZoom = (amount) => {
+                    zoom = Math.min(3, Math.max(0.5, Math.round((zoom + amount) * 100) / 100));
+                    updateZoom();
+                };
+                zoomOut.addEventListener('click', () => changeZoom(-0.2));
+                zoomIn.addEventListener('click', () => changeZoom(0.2));
+                resetZoom.addEventListener('click', () => {
+                    zoom = 1;
+                    updateZoom();
+                });
                 closeButton.addEventListener('click', () => {
                     if (externalPreviewBlobUrl) URL.revokeObjectURL(externalPreviewBlobUrl);
                     externalPreviewBlobUrl = null;
@@ -1274,25 +1325,30 @@ function showDetailSuratEksternal(id) {
                     button.disabled = false;
                     fileContainer.classList.add('d-flex', 'align-items-center', 'justify-content-center');
                 });
-                toolbar.appendChild(closeButton);
                 preview.appendChild(toolbar);
 
                 if (mimeType.startsWith('image/')) {
                     const image = document.createElement('img');
                     image.src = externalPreviewBlobUrl;
                     image.alt = `Lampiran surat ${record.noSurat || ''}`;
-                    image.className = 'flex-grow-1 w-100 bg-dark';
-                    image.style.minHeight = '0';
+                    image.className = 'd-block mx-auto';
+                    image.style.width = '100%';
+                    image.style.height = 'auto';
                     image.style.objectFit = 'contain';
-                    preview.appendChild(image);
+                    zoomContent = image;
+                    viewer.appendChild(image);
                 } else {
                     const frame = document.createElement('iframe');
                     frame.src = externalPreviewBlobUrl;
                     frame.title = `Lampiran surat ${record.noSurat || ''}`;
-                    frame.className = 'flex-grow-1 w-100 bg-white border-0';
-                    frame.style.minHeight = '0';
-                    preview.appendChild(frame);
+                    frame.className = 'bg-white border-0';
+                    frame.style.flex = '0 0 auto';
+                    frame.style.transformOrigin = 'top left';
+                    zoomContent = frame;
+                    viewer.appendChild(frame);
                 }
+                updateZoom();
+                preview.appendChild(viewer);
 
                 fileContainer.classList.remove('d-flex', 'align-items-center', 'justify-content-center');
                 button.hidden = true;
