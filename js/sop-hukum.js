@@ -577,15 +577,7 @@ window.saveSopPdfFile = async function () {
             }
         }
 
-        // 3. Simpan ke localStorage dengan proteksi jika kuota string base64 penuh
-        try {
-            localStorage.setItem('sidimas_sop_pdf_data', pendingSopPdfData);
-        } catch (eQuota) {
-            console.warn('[SiDiMAS] localStorage quota penuh untuk base64 data, mengandalkan IndexedDB/Cloud:', eQuota);
-        }
-        localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(pendingSopPdfMeta));
-
-        // 4. Jika sedang online dan di web browser, upload ke Google Drive
+        // 3. Jika sedang online dan di web browser, upload ke Google Drive
         if (typeof isAppOnline === 'function' && isAppOnline() && typeof window.sidimas === 'undefined') {
             try {
                 const onlRes = await apiCall('uploadSopPdf', {
@@ -601,7 +593,6 @@ window.saveSopPdfFile = async function () {
                     localStorage.setItem('sidimas_sop_pdf_url', previewUrl);
                     if (onlRes.meta) {
                         pendingSopPdfMeta = onlRes.meta;
-                        localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(onlRes.meta));
                     }
 
                     // Sinkronkan juga ke sidimas_settings di localStorage
@@ -630,6 +621,14 @@ window.saveSopPdfFile = async function () {
                 return;
             }
         }
+
+        // 4. Simpan ke localStorage dengan proteksi jika kuota string base64 penuh
+        try {
+            localStorage.setItem('sidimas_sop_pdf_data', pendingSopPdfData);
+        } catch (eQuota) {
+            console.warn('[SiDiMAS] localStorage quota penuh untuk base64 data, mengandalkan IndexedDB/Cloud:', eQuota);
+        }
+        localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(pendingSopPdfMeta));
 
         // 5. Simpan ke Dexie IndexedDB jika tersedia (Kapasitas besar, aman dari QuotaExceededError)
         if (typeof localDB !== 'undefined' && localDB.appSettings) {
