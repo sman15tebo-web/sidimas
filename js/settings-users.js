@@ -109,20 +109,38 @@ async function readLocalSettings() {
 }
 
 async function saveSettingPatchLocally(settings, payload) {
+    if (isAppOnline()) {
+        const response = await apiCall('saveSettings', payload);
+        if (!response || response.success !== true) {
+            throw new Error(response && response.message || 'Spreadsheet tidak mengonfirmasi penyimpanan pengaturan.');
+        }
+
+        let settingsToCache = settings;
+        try {
+            const serverSettings = await apiCall('getSettings');
+            if (serverSettings && serverSettings.success === true && serverSettings.data) {
+                settingsToCache = serverSettings.data;
+                Object.assign(settings, serverSettings.data);
+            }
+        } catch (error) {
+            console.warn('[SiDiMAS] Pengaturan tersimpan di Spreadsheet, tetapi cache lengkap gagal dimuat:', error);
+        }
+        try {
+            localStorage.setItem('sidimas_settings', JSON.stringify(settingsToCache));
+        } catch (error) {
+            console.warn('[SiDiMAS] Pengaturan tersimpan di Spreadsheet, tetapi cache browser gagal diperbarui:', error);
+        }
+        return true;
+    }
+
+    if (!isElectron) {
+        throw new Error('Koneksi ke Spreadsheet diperlukan untuk menyimpan pengaturan versi web.');
+    }
+
     await localDB.appSettings.put({ id: 'config', data: JSON.stringify(settings) });
     localStorage.setItem('sidimas_settings', JSON.stringify(settings));
-    const queueId = await localDB.antrianSync.put({ action: 'saveSettings', payload, status: 'pending' });
-    let savedOnline = false;
-    if (isAppOnline()) {
-        try {
-            const response = await apiCall('saveSettings', payload);
-            savedOnline = Boolean(response && response.success);
-            if (savedOnline && queueId !== undefined) await localDB.antrianSync.delete(queueId);
-        } catch (error) {
-            console.warn('[SiDiMAS] Pengaturan tersimpan lokal dan menunggu sync:', error);
-        }
-    }
-    return savedOnline;
+    await localDB.antrianSync.put({ action: 'saveSettings', payload, status: 'pending' });
+    return false;
 }
 
 async function simpanKodeLembaga() {
@@ -138,12 +156,12 @@ async function simpanKodeLembaga() {
         Swal.fire({
             icon: savedOnline ? 'success' : 'warning',
             title: savedOnline ? 'Kode Lembaga Disimpan' : 'Tersimpan Lokal',
-            text: savedOnline ? 'Kode berhasil disimpan lokal dan ke Spreadsheet.' : `Kode "${kode}" aman di lokal dan akan dicoba sync otomatis.`,
+            text: savedOnline ? 'Kode berhasil disimpan ke Spreadsheet dan diperbarui di perangkat ini.' : `Kode "${kode}" aman di lokal dan akan dicoba sync otomatis.`,
             timer: 1800,
             showConfirmButton: false
         });
     } catch (error) {
-        Swal.fire('Error', 'Gagal menyimpan pengaturan lokal: ' + error.message, 'error');
+        Swal.fire('Gagal Menyimpan Pengaturan', error.message || String(error), 'error');
     }
 }
 
@@ -166,12 +184,12 @@ async function simpanPimpinan() {
         Swal.fire({
             icon: savedOnline ? 'success' : 'warning',
             title: savedOnline ? 'Disimpan' : 'Tersimpan Lokal',
-            text: savedOnline ? 'Data pimpinan tersimpan lokal dan ke Spreadsheet.' : 'Data pimpinan aman di lokal dan akan dicoba sync otomatis.',
+            text: savedOnline ? 'Data pimpinan berhasil disimpan ke Spreadsheet dan diperbarui di perangkat ini.' : 'Data pimpinan aman di lokal dan akan dicoba sync otomatis.',
             timer: 1800,
             showConfirmButton: false
         });
     } catch (error) {
-        Swal.fire('Error', 'Gagal menyimpan pengaturan lokal: ' + error.message, 'error');
+        Swal.fire('Gagal Menyimpan Pengaturan', error.message || String(error), 'error');
     }
 }
 
