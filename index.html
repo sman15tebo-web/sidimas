@@ -108,35 +108,23 @@
     <script>
         let currentZoomLevel = 0;
         function zoomApp(step) {
-            // Zoom via CSS (main.js sudah handle Ctrl+/-/0 via webContents.setZoomFactor)
-            if (step === 0) {
-                currentZoomLevel = 0;
-                document.body.style.zoom = 1.0;
-            } else {
-                currentZoomLevel += (step > 0 ? 1 : -1);
-                if (currentZoomLevel < -5) currentZoomLevel = -5;
-                if (currentZoomLevel > 5) currentZoomLevel = 5;
-                let cssZoom = 1.0 + (currentZoomLevel * 0.1);
-                if (cssZoom < 0.5) cssZoom = 0.5;
-                if (cssZoom > 3.0) cssZoom = 3.0;
-                document.body.style.zoom = cssZoom;
-            }
+            // Hindari zoom global ke body karena merusak layout modal, sidebar, dan overlay.
+            currentZoomLevel = 0;
+            document.body.style.zoom = 1.0;
+            document.body.style.transform = 'none';
+            document.body.style.transformOrigin = 'top left';
         }
 
-        // Dukungan untuk tombol shortcut laptop (Ctrl+ / Ctrl- / Ctrl0)
+        // Matikan shortcut zoom agar layout tetap stabil di desktop maupun browser.
         document.addEventListener('keydown', function (event) {
             if (event.ctrlKey) {
-                if (event.key === '=' || event.key === '+') {
-                    zoomApp(0.1);
-                } else if (event.key === '-') {
-                    zoomApp(-0.1);
-                } else if (event.key === '0') {
+                if (event.key === '=' || event.key === '+' || event.key === '-' || event.key === '0') {
+                    event.preventDefault();
                     zoomApp(0);
                 }
             }
         });
 
-        // Paksa zoom ke normal (0) saat pertama kali aplikasi dibuka
         setTimeout(() => zoomApp(0), 100);
     </script>
 
@@ -3178,6 +3166,10 @@
                         <button id="btnSimpan" class="btn btn-primary w-100 mt-3 fw-bold"><span>SIMPAN DATA</span><span
                                 class="spinner-border spinner-border-sm hide" role="status"></span></button>
                     </form>
+
+                    <div id="suratInlinePreviewContainer" class="mt-3 border rounded bg-light p-2 d-none"
+                        style="display:none; min-height: 220px; max-height: 62vh; overflow: hidden;">
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Tutup Kembali</button>
