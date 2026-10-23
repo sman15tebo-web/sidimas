@@ -239,7 +239,13 @@ window.loadSOPHukumTab = async function () {
         }
 
         // Jalankan sinkronisasi cerdas dua arah jika ada koneksi online
-        if ((typeof isAppOnline === 'function' ? isAppOnline() : navigator.onLine) && typeof syncSopTwoWay === 'function') {
+        const isOnline = (typeof isAppOnline === 'function') ? isAppOnline() : navigator.onLine;
+        if (isOnline && typeof syncSopTwoWay === 'function') {
+            const activeBadgeEl = document.getElementById('sopActiveBadge');
+            const hasCustom = (typeof hasCustomSopPdf === 'function') ? hasCustomSopPdf() : false;
+            if (activeBadgeEl && !hasCustom) {
+                activeBadgeEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Menyinkronkan cloud...';
+            }
             await syncSopTwoWay();
             updateSopTabUI();
         }
@@ -438,29 +444,39 @@ function updateSopTabUI() {
 
         if (activeMetaEl) {
             activeMetaEl.classList.remove('d-none');
-            activeMetaEl.innerHTML = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 me-1"><i class="fas fa-check-circle me-1"></i>SOP Aktif</span> <b>${fileName}</b> <span class="text-muted">(${customSopMeta.sizeText || 'PDF'} • ${customSopMeta.updatedAt || 'Tersimpan'} • ${locText})</span>`;
+            activeMetaEl.innerHTML = `<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 me-1"><i class="fas fa-check-circle me-1"></i>SOP Khusus Aktif</span> <b>${fileName}</b> <span class="text-muted">(${customSopMeta.sizeText || 'PDF'} • ${customSopMeta.updatedAt || 'Tersimpan'} • ${locText})</span>`;
         }
         if (activeBadgeEl) {
-            activeBadgeEl.textContent = 'Dokumen Resmi Aktif (PDF)';
+            activeBadgeEl.textContent = 'Dokumen Kustom Resmi (PDF)';
             activeBadgeEl.className = 'badge rounded-pill bg-success text-white py-1 px-2.5';
         }
 
-        // Tampilkan tombol Lihat dan tombol X Hapus
-        if (btnLihatEl) btnLihatEl.classList.remove('d-none');
+        // Tampilkan tombol Lihat (Merah) dan tombol X Hapus
+        if (btnLihatEl) {
+            btnLihatEl.classList.remove('d-none');
+            btnLihatEl.className = 'btn btn-outline-danger btn-sm fw-semibold shadow-xs';
+            btnLihatEl.innerHTML = '<i class="fas fa-eye me-1"></i>Lihat SOP';
+            btnLihatEl.title = 'Lihat dokumen SOP resmi yang diunggah';
+        }
         if (btnHapusEl) btnHapusEl.classList.remove('d-none');
     } else {
-        // Mode: Belum ada file kustom yang diunggah
+        // Mode: Menggunakan Berkas SOP Standar Resmi Satuan Pendidikan
         if (activeMetaEl) {
-            activeMetaEl.classList.add('d-none');
-            activeMetaEl.innerHTML = '';
+            activeMetaEl.classList.remove('d-none');
+            activeMetaEl.innerHTML = `<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-1"><i class="fas fa-info-circle me-1"></i>SOP Standar</span> <b>SOP Persuratan SMAN 15 Tebo (Baku)</b> <span class="text-muted">(Standar Resmi SiDiMAS)</span>`;
         }
         if (activeBadgeEl) {
-            activeBadgeEl.textContent = 'Belum Ada SOP PDF';
-            activeBadgeEl.className = 'badge rounded-pill bg-secondary bg-opacity-10 text-secondary border py-1 px-2.5';
+            activeBadgeEl.textContent = 'SOP Standar Resmi';
+            activeBadgeEl.className = 'badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 py-1 px-2.5';
         }
 
-        // Sembunyikan tombol Lihat & Hapus X
-        if (btnLihatEl) btnLihatEl.classList.add('d-none');
+        // Tombol Lihat SOP tetap AKTIF dan BISA DIKLIK untuk melihat SOP Standar!
+        if (btnLihatEl) {
+            btnLihatEl.classList.remove('d-none');
+            btnLihatEl.className = 'btn btn-outline-primary btn-sm fw-semibold shadow-xs';
+            btnLihatEl.innerHTML = '<i class="fas fa-eye me-1"></i>Lihat SOP Standar';
+            btnLihatEl.title = 'Lihat dokumen SOP persuratan standar sekolah';
+        }
         if (btnHapusEl) btnHapusEl.classList.add('d-none');
     }
 
@@ -581,7 +597,7 @@ window.saveSopPdfFile = async function () {
                     fileDataUrl: pendingSopPdfData,
                     filename: pendingSopPdfMeta.name
                 });
-                if (onlRes && (onlRes.url || onlRes.previewUrl)) {
+                if (onlRes && onlRes.success && (onlRes.url || onlRes.previewUrl)) {
                     let previewUrl = onlRes.previewUrl || onlRes.url;
                     if (previewUrl.includes('drive.google.com/file/d/')) {
                         const m = previewUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -605,9 +621,18 @@ window.saveSopPdfFile = async function () {
                         }
                         localStorage.setItem('sidimas_settings', JSON.stringify(curSettings));
                     } catch (_) { }
+                } else {
+                    const msg = (onlRes && onlRes.message) ? onlRes.message : 'Server cloud tidak merespons berkas yang diunggah.';
+                    throw new Error(msg);
                 }
             } catch (cloudErr) {
-                console.warn('[SiDiMAS] Simpan online Drive error:', cloudErr);
+                console.error('[SiDiMAS] Gagal unggah ke Google Drive:', cloudErr);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Menyimpan ke Cloud Drive',
+                    text: 'Gagal mengunggah berkas ke Google Drive: ' + (cloudErr.message || String(cloudErr)) + '. Pastikan Google Apps Script (kode.gs) sudah di-Deploy versi baru.'
+                });
+                return;
             }
         }
 
@@ -625,9 +650,9 @@ window.saveSopPdfFile = async function () {
 
         Swal.fire({
             icon: 'success',
-            title: 'Berhasil Disimpan',
-            text: 'Dokumen SOP persuratan berhasil disimpan ke sistem!',
-            timer: 2000,
+            title: 'Berhasil Disimpan & Sinkron ke Cloud',
+            text: 'Dokumen SOP resmi berhasil disimpan ke Google Drive dan langsung aktif di HP serta semua perangkat!',
+            timer: 2500,
             showConfirmButton: false
         });
         finishSaveSop();
