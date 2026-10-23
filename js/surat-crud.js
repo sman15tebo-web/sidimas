@@ -2436,6 +2436,7 @@ function openFilePreviewModal(opts) {
     const htmlContent = opts.htmlContent || '';
     const filename = opts.filename || 'dokumen';
     const typeBadge = opts.typeBadge || '';
+    const inlineTarget = opts.inlineTarget ? document.querySelector(opts.inlineTarget) : null;
     currentPreviewType = typeBadge.toUpperCase();
     currentPreviewFilename = filename;
     currentPreviewArchiveData = opts.archiveData || null;
@@ -2636,6 +2637,30 @@ function openFilePreviewModal(opts) {
 
     $('#btnOpenPdf').attr('href', blobUrl);
     $('#btnOpenPdf').attr('download', currentPreviewFilename);
+
+    if (inlineTarget) {
+        const safeTitle = String(title).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        inlineTarget.innerHTML = '';
+        inlineTarget.classList.remove('d-none');
+        inlineTarget.style.display = 'block';
+        inlineTarget.style.height = '62vh';
+
+        if (typeBadge === 'GAMBAR') {
+            inlineTarget.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100 bg-white rounded border" style="min-height: 220px; overflow: auto;">
+                    <img src="${blobUrl}" alt="${safeTitle}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 3px 12px rgba(0,0,0,0.12);">
+                </div>
+            `;
+        } else {
+            inlineTarget.innerHTML = `
+                <div class="position-relative h-100 bg-white rounded border" style="min-height: 220px; overflow: hidden;">
+                    <iframe src="${blobUrl}" title="${safeTitle}" style="width: 100%; height: 100%; min-height: 220px; border: none; background: white;"></iframe>
+                </div>
+            `;
+        }
+        return;
+    }
+
     $('#mdlPdfPreview').modal('show');
 }
 
@@ -3192,6 +3217,7 @@ function previewFromModalSurat(jenis) {
         title: title,
         typeBadge: typeBadge,
         dataUrl: fUrl,
+        inlineTarget: '#suratInlinePreviewContainer',
         filename: `Berkas_${jenis}_${noSurat.replace(/[^a-zA-Z0-9_\-]/g, '_')}`
     });
 }
