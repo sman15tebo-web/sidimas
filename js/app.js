@@ -24,7 +24,7 @@ $(document).ready(function () {
     // JALANKAN CEK URL PERTAMA KALI
     if (!initTenantRouting()) return; // Stop loading jika link salah
 
-    // Muat pengaturan dari cache lalu sinkronkan dari database lokal SQLite
+    // Cache dipakai hanya untuk tampilan offline; versi web mengambil sumber utama dari Spreadsheet.
     renderSettingsFromCache();
     loadSettingsFromDB();
     applyEnvironmentVisibility();
@@ -267,6 +267,8 @@ $(document).ready(function () {
 });
 
 function renderSettingsFromCache() {
+    if (typeof isAppOnline === 'function' && isAppOnline()) return;
+
     const cached = localStorage.getItem('sidimas_settings');
     if (cached) {
         try { renderAppAttributes(JSON.parse(cached)); } catch (e) { }
@@ -284,6 +286,16 @@ function renderSettingsFromCache() {
 
 async function loadSettingsFromDB() {
     try {
+        const isOnlineMode = typeof isAppOnline === 'function' && isAppOnline();
+        if (isOnlineMode) {
+            const response = await apiCall('getSettings');
+            if (!response || response.success !== true || !response.data) {
+                throw new Error(response && response.message || 'Spreadsheet tidak mengembalikan data pengaturan.');
+            }
+            renderAppAttributes(response.data);
+            return response.data;
+        }
+
         let s = null;
         if (localDB && localDB.appSettings) {
             const rows = await localDB.appSettings.toArray();
@@ -292,24 +304,6 @@ async function loadSettingsFromDB() {
                 if (found && found.data) {
                     s = typeof found.data === 'string' ? JSON.parse(found.data) : found.data;
                 }
-            }
-        }
-
-        // CEK APAKAH MODE ONLINE — pakai URL params langsung, tidak bergantung API_URL yg mungkin belum ready
-        const urlP = new URLSearchParams(window.location.search);
-        const tid = (urlP.get('id') || '').toLowerCase();
-        const isOnlineMode = !isElectron && window.location.protocol.startsWith('http') && navigator.onLine;
-        const targetUrl = (typeof DAFTAR_BACKEND !== 'undefined' && tid) ? DAFTAR_BACKEND[tid] : null;
-
-        // JIKA TIDAK DITEMUKAN PENGATURAN DI LOKAL DAN SEDANG ONLINE, TARIK DARI SPREADSHEET
-        if ((!s || Object.keys(s).length === 0) && isOnlineMode && targetUrl) {
-            console.log('[SiDiMAS] Mengambil pengaturan pertama kali dari Server...', targetUrl);
-            // Pastikan API_URL sudah diset sebelum apiCall
-            if (!API_URL) { API_URL = targetUrl; }
-            const res = await apiCall('getSettings');
-            if (res.success && res.data) {
-                s = res.data;
-                await localDB.appSettings.put({ id: 'config', data: s });
             }
         }
 
