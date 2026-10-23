@@ -374,37 +374,64 @@ async function simpanSetting(e) {
     if (d.b64_sekolah === 'DEL') s.logo_sekolah = "";
     else if (d.b64_sekolah) s.logo_sekolah = d.b64_sekolah;
 
-    // 1. Simpan ke SQLite lokal
-    try {
-        if (localDB && localDB.appSettings) {
-            await localDB.appSettings.put({ id: 'config', data: JSON.stringify(s) });
+    const online = typeof isAppOnline === 'function' && isAppOnline();
+    if (online) {
+        try {
+            const response = await apiCall('saveSettings', d);
+            if (!response || response.success !== true) {
+                throw new Error(response && response.message || 'Spreadsheet tidak mengonfirmasi penyimpanan pengaturan.');
+            }
+        } catch (error) {
+            Swal.close();
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal Menyimpan ke Spreadsheet',
+                text: error.message || String(error)
+            });
+            return;
         }
-    } catch (err) {
-        console.warn('[SiDiMAS] Error put appSettings:', err);
+    } else if (!isElectron) {
+        Swal.close();
+        Swal.fire({
+            icon: 'error',
+            title: 'Koneksi Spreadsheet Tidak Tersedia',
+            text: 'Pengaturan web tidak disimpan hanya di browser. Periksa koneksi dan coba lagi.'
+        });
+        return;
     }
 
-    // 2. Simpan ke localStorage
+    // Cache browser hanya diperbarui setelah cloud menerima perubahan.
     try {
         localStorage.setItem('sidimas_settings', JSON.stringify(s));
     } catch (err) {
         console.warn('[SiDiMAS] localStorage quota limit:', err);
     }
 
-    // 3. Terapkan secara visual ke seluruh elemen halaman
+    // Jalur SQLite dan antrean hanya untuk aplikasi desktop offline.
+    if (!online && isElectron) {
+        try {
+            if (localDB && localDB.appSettings) {
+                await localDB.appSettings.put({ id: 'config', data: JSON.stringify(s) });
+            }
+            await localDB.antrianSync.put({ action: 'saveSettings', payload: d, status: 'pending' });
+        } catch (err) {
+            Swal.close();
+            Swal.fire('Gagal Menyimpan Pengaturan Offline', err.message || String(err), 'error');
+            return;
+        }
+    }
+
     renderAppAttributes(s);
     $('#b64Logo1').val(''); $('#b64Logo2').val('');
     $('#delLogo1').val('0'); $('#delLogo2').val('0');
 
-    // 4. Catat antrian sinkronisasi untuk sync ke cloud
-    try {
-        await localDB.antrianSync.put({ action: 'saveSettings', payload: d, status: 'pending' });
-    } catch (err) { }
-
     Swal.close();
     Swal.fire({
         icon: 'success',
-        title: 'Tersimpan di Komputer',
-        text: 'Pengaturan dan logo berhasil disimpan secara permanen.',
+        title: online ? 'Tersimpan ke Spreadsheet' : 'Tersimpan di Komputer',
+        text: online
+            ? 'Pengaturan dan logo berhasil disimpan ke database bersama.'
+            : 'Pengaturan dan logo berhasil disimpan di database offline.',
         timer: 1800,
         showConfirmButton: false
     });
@@ -645,4 +672,3 @@ function modalInstal() {
         confirmButtonColor: 'var(--main-color)'
     });
 }
-
