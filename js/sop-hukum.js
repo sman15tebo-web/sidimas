@@ -119,6 +119,15 @@ const DEFAULT_DASAR_HUKUM_SIDIMAS = [
 let pendingSopPdfData = null;
 let pendingSopPdfMeta = null;
 let activeSopBlobUrl = null;
+let onlineCloudSopInfo = null;
+let onlineCloudSopLoaded = false;
+let onlineCloudSopError = '';
+
+function isOnlineWebSop() {
+    return typeof window.sidimas === 'undefined' &&
+        typeof isAppOnline === 'function' &&
+        isAppOnline();
+}
 
 function base64ToBlob(base64, type = 'application/pdf') {
     const cleanBase64 = base64.replace(/^data:application\/pdf;base64,/, '');
@@ -132,6 +141,13 @@ function base64ToBlob(base64, type = 'application/pdf') {
 }
 
 window.getStoredSopInfo = function () {
+    if (isOnlineWebSop()) {
+        if (!onlineCloudSopLoaded) {
+            return { url: '', data: '', localPath: '', meta: null, hasDoc: false, loading: true, error: onlineCloudSopError };
+        }
+        return { ...onlineCloudSopInfo, data: '', localPath: '' };
+    }
+
     let url = localStorage.getItem('sidimas_sop_pdf_url') || '';
     let data = localStorage.getItem('sidimas_sop_pdf_data') || '';
     let localPath = localStorage.getItem('sidimas_sop_pdf_local_path') || '';
@@ -191,6 +207,9 @@ window.getStoredSopInfo = function () {
 };
 
 window.hasCustomSopPdf = function () {
+    if (isOnlineWebSop()) {
+        return onlineCloudSopLoaded && Boolean(onlineCloudSopInfo && onlineCloudSopInfo.hasDoc);
+    }
     const info = (typeof getStoredSopInfo === 'function') ? getStoredSopInfo() : null;
     if (info && info.hasDoc) return true;
     return Boolean(localStorage.getItem('sidimas_sop_pdf_data') || localStorage.getItem('sidimas_sop_pdf_url'));
@@ -265,13 +284,21 @@ window.syncSopTwoWay = async function () {
     const hasGas = Boolean(typeof API_URL !== 'undefined' && API_URL && isOnline);
     if (!hasGas) return null;
 
+    if (typeof window.sidimas === 'undefined') {
+        onlineCloudSopInfo = null;
+        onlineCloudSopLoaded = false;
+        onlineCloudSopError = '';
+        if (typeof updateSopTabUI === 'function') updateSopTabUI();
+    }
+
     try {
         console.log('[SiDiMAS Sync SOP] Memeriksa sinkronisasi dua arah dokumen SOP...');
 
         // 1. Ambil data lokal
         const info = (typeof getStoredSopInfo === 'function') ? getStoredSopInfo() : {};
-        let offlineData = info.data || localStorage.getItem('sidimas_sop_pdf_data') || '';
-        let offlineMeta = info.meta;
+        let offlineData = typeof window.sidimas !== 'undefined'
+            ? info.data || localStorage.getItem('sidimas_sop_pdf_data') || ''
+            : '';
 
         // Jika di Electron dan belum ada di cache, baca dari SQLite
         if (!offlineData && typeof window.sidimas !== 'undefined') {
@@ -282,26 +309,43 @@ window.syncSopTwoWay = async function () {
                     offlineData = typeof rowData === 'object' && rowData.data ? rowData.data : rowData;
                     if (offlineData) localStorage.setItem('sidimas_sop_pdf_data', offlineData);
                 }
-                if (rowMeta) {
-                    offlineMeta = typeof rowMeta === 'object' && rowMeta.data ? rowMeta.data : rowMeta;
-                    if (offlineMeta) localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(offlineMeta));
-                }
+                if (rowMeta && rowMeta.data) localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(rowMeta.data));
             } catch (_) { }
         }
 
-        const hasOffline = Boolean(offlineData && offlineData.length > 50);
-
-        // Hanya minta base64 berat jika berada di desktop Electron agar web online tetap ringan & cepat
+        // Hanya desktop offline yang menyimpan salinan PDF lokal.
         const needBase64 = Boolean(typeof window.sidimas !== 'undefined');
         let onlineRes = null;
         try {
             onlineRes = await apiCall('getSopPdf', { includeBase64: needBase64 });
         } catch (e) {
             console.warn('[SiDiMAS Sync SOP] Gagal memanggil getSopPdf ke server:', e);
+            if (typeof window.sidimas === 'undefined') {
+                onlineCloudSopError = e.message || String(e);
+                if (typeof updateSopTabUI === 'function') updateSopTabUI();
+            }
             return null;
         }
 
-        const hasOnline = Boolean(onlineRes && onlineRes.hasCustom && (onlineRes.url || onlineRes.fileId));
+        if (!onlineRes || onlineRes.success !== true) {
+            const message = onlineRes && onlineRes.message || 'Respons tidak valid.';
+            console.warn('[SiDiMAS Sync SOP] Server belum mengonfirmasi status SOP:', message);
+            if (typeof window.sidimas === 'undefined') {
+                onlineCloudSopInfo = null;
+                onlineCloudSopLoaded = false;
+                onlineCloudSopError = message;
+            }
+            const badge = document.getElementById('sopActiveBadge');
+            if (badge) {
+                badge.textContent = 'SOP Cloud belum dapat diakses';
+                badge.className = 'badge rounded-pill bg-warning text-dark py-1 px-2.5';
+                badge.title = message;
+            }
+            if (typeof updateSopTabUI === 'function') updateSopTabUI();
+            return null;
+        }
+
+        const hasOnline = Boolean(onlineRes.hasCustom && (onlineRes.url || onlineRes.fileId));
 
         // ==============================================================
         // SINKRONISASI STATUS CLOUD GOOGLE DRIVE
@@ -311,8 +355,19 @@ window.syncSopTwoWay = async function () {
             // hapus metadata SOP kustom dari cache lokal agar konsisten di semua perangkat (HP, Laptop).
             // TIDAK BOLEH auto-upload diam-diam di background agar tidak membanjiri Drive dengan file ganda.
             console.log('[SiDiMAS Sync SOP] Tidak ada dokumen SOP kustom di Google Drive.');
+            if (typeof window.sidimas === 'undefined') {
+                onlineCloudSopInfo = { url: '', data: '', localPath: '', meta: null, hasDoc: false };
+                onlineCloudSopLoaded = true;
+                onlineCloudSopError = '';
+            }
             localStorage.removeItem('sidimas_sop_pdf_url');
             localStorage.removeItem('sidimas_sop_pdf_meta');
+            if (typeof window.sidimas === 'undefined' && typeof localDB !== 'undefined' && localDB.appSettings) {
+                localStorage.removeItem('sidimas_sop_pdf_data');
+                await localDB.appSettings.delete('sop_pdf_data');
+                await localDB.appSettings.delete('sop_pdf_meta');
+                await localDB.appSettings.delete('sop_pdf_url');
+            }
             try {
                 const curSettings = JSON.parse(localStorage.getItem('sidimas_settings') || '{}');
                 delete curSettings.sop_pdf_url;
@@ -347,20 +402,22 @@ window.syncSopTwoWay = async function () {
                 url: targetUrl
             };
 
-            // Simpan link & meta ke localStorage
-            if (targetUrl) localStorage.setItem('sidimas_sop_pdf_url', targetUrl);
-            localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(metaData));
-
-            // Perbarui sidimas_settings agar selalu sinkron
-            try {
-                const curSettings = JSON.parse(localStorage.getItem('sidimas_settings') || '{}');
-                curSettings.sop_pdf_url = targetUrl;
-                curSettings.sop_pdf_file_id = onlineRes.fileId;
-                curSettings.sop_pdf_name = metaData.name;
-                curSettings.sop_pdf_size = metaData.sizeText;
-                curSettings.sop_pdf_updated = metaData.updatedAt;
-                localStorage.setItem('sidimas_settings', JSON.stringify(curSettings));
-            } catch (_) { }
+            if (typeof window.sidimas === 'undefined') {
+                onlineCloudSopInfo = { url: targetUrl, data: '', localPath: '', meta: metaData, hasDoc: true };
+                onlineCloudSopLoaded = true;
+                onlineCloudSopError = '';
+                localStorage.removeItem('sidimas_sop_pdf_url');
+                localStorage.removeItem('sidimas_sop_pdf_meta');
+                localStorage.removeItem('sidimas_sop_pdf_data');
+                if (typeof localDB !== 'undefined' && localDB.appSettings) {
+                    await localDB.appSettings.delete('sop_pdf_url');
+                    await localDB.appSettings.delete('sop_pdf_meta');
+                    await localDB.appSettings.delete('sop_pdf_data');
+                }
+            } else {
+                if (targetUrl) localStorage.setItem('sidimas_sop_pdf_url', targetUrl);
+                localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(metaData));
+            }
 
             // Simpan ke Electron SQLite & berkas harddisk lokal jika ada base64
             if (typeof window.sidimas !== 'undefined' && onlineRes.base64) {
@@ -383,8 +440,8 @@ window.syncSopTwoWay = async function () {
                 localStorage.setItem('sidimas_sop_pdf_data', base64Data);
             }
 
-            // Simpan ke Dexie IndexedDB
-            if (typeof localDB !== 'undefined' && localDB.appSettings) {
+            // Simpan salinan SOP hanya untuk mode desktop/offline.
+            if (typeof window.sidimas !== 'undefined' && typeof localDB !== 'undefined' && localDB.appSettings) {
                 try {
                     await localDB.appSettings.put({ id: 'sop_pdf_meta', data: metaData });
                     if (onlineRes.base64) {
@@ -399,6 +456,12 @@ window.syncSopTwoWay = async function () {
         }
     } catch (syncErr) {
         console.warn('[SiDiMAS Sync SOP] Peringatan sinkronisasi dokumen SOP:', syncErr);
+        if (typeof window.sidimas === 'undefined') {
+            onlineCloudSopInfo = null;
+            onlineCloudSopLoaded = false;
+            onlineCloudSopError = syncErr.message || String(syncErr);
+            if (typeof updateSopTabUI === 'function') updateSopTabUI();
+        }
     }
     return null;
 };
@@ -422,6 +485,24 @@ function updateSopTabUI() {
     const btnLihatEl = document.getElementById('btnLihatSop');
     const btnHapusEl = document.getElementById('btnHapusSop');
     const btnUnduhTemplateWord = document.getElementById('btnUnduhTemplateWord');
+
+    if (info.loading) {
+        if (activeMetaEl) {
+            activeMetaEl.classList.add('d-none');
+            activeMetaEl.innerHTML = '';
+        }
+        if (activeBadgeEl) {
+            activeBadgeEl.textContent = info.error ? 'SOP Cloud belum dapat diakses' : 'Memuat SOP dari cloud...';
+            activeBadgeEl.className = info.error
+                ? 'badge rounded-pill bg-warning text-dark py-1 px-2.5'
+                : 'badge rounded-pill bg-info text-white py-1 px-2.5';
+            activeBadgeEl.title = info.error || '';
+        }
+        if (btnLihatEl) btnLihatEl.classList.add('d-none');
+        if (btnHapusEl) btnHapusEl.classList.add('d-none');
+        if (btnUnduhTemplateWord) btnUnduhTemplateWord.classList.remove('d-none');
+        return;
+    }
 
     const hasUploadedDoc = Boolean(customSopData || customSopUrl || customLocalPath);
 
@@ -548,6 +629,7 @@ window.saveSopPdfFile = async function () {
 
     try {
         let savedOffline = false;
+        const onlineWeb = isOnlineWebSop();
 
         // 1. Jika di Electron, coba IPC saveOfflineSopPdf
         if (typeof window.sidimas !== 'undefined' && typeof window.sidimas.saveOfflineSopPdf === 'function') {
@@ -578,7 +660,7 @@ window.saveSopPdfFile = async function () {
         }
 
         // 3. Jika sedang online dan di web browser, upload ke Google Drive
-        if (typeof isAppOnline === 'function' && isAppOnline() && typeof window.sidimas === 'undefined') {
+        if (onlineWeb) {
             try {
                 const onlRes = await apiCall('uploadSopPdf', {
                     fileDataUrl: pendingSopPdfData,
@@ -590,23 +672,18 @@ window.saveSopPdfFile = async function () {
                         const m = previewUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
                         if (m && m[1]) previewUrl = `https://drive.google.com/file/d/${m[1]}/preview`;
                     }
-                    localStorage.setItem('sidimas_sop_pdf_url', previewUrl);
                     if (onlRes.meta) {
                         pendingSopPdfMeta = onlRes.meta;
                     }
-
-                    // Sinkronkan juga ke sidimas_settings di localStorage
-                    try {
-                        const curSettings = JSON.parse(localStorage.getItem('sidimas_settings') || '{}');
-                        curSettings.sop_pdf_url = previewUrl;
-                        curSettings.sop_pdf_file_id = onlRes.fileId;
-                        if (onlRes.meta) {
-                            curSettings.sop_pdf_name = onlRes.meta.name;
-                            curSettings.sop_pdf_size = onlRes.meta.sizeText;
-                            curSettings.sop_pdf_updated = onlRes.meta.updatedAt;
-                        }
-                        localStorage.setItem('sidimas_settings', JSON.stringify(curSettings));
-                    } catch (_) { }
+                    onlineCloudSopInfo = {
+                        url: previewUrl,
+                        data: '',
+                        localPath: '',
+                        meta: pendingSopPdfMeta,
+                        hasDoc: true
+                    };
+                    onlineCloudSopLoaded = true;
+                    onlineCloudSopError = '';
                 } else {
                     const msg = (onlRes && onlRes.message) ? onlRes.message : 'Server cloud tidak merespons berkas yang diunggah.';
                     throw new Error(msg);
@@ -622,16 +699,27 @@ window.saveSopPdfFile = async function () {
             }
         }
 
-        // 4. Simpan ke localStorage dengan proteksi jika kuota string base64 penuh
-        try {
-            localStorage.setItem('sidimas_sop_pdf_data', pendingSopPdfData);
-        } catch (eQuota) {
-            console.warn('[SiDiMAS] localStorage quota penuh untuk base64 data, mengandalkan IndexedDB/Cloud:', eQuota);
+        // Web online selalu membaca dokumen dari Drive, bukan salinan di perangkat.
+        if (onlineWeb) {
+            localStorage.removeItem('sidimas_sop_pdf_data');
+            localStorage.removeItem('sidimas_sop_pdf_url');
+            localStorage.removeItem('sidimas_sop_pdf_meta');
+            if (typeof localDB !== 'undefined' && localDB.appSettings) {
+                await localDB.appSettings.delete('sop_pdf_data');
+                await localDB.appSettings.delete('sop_pdf_url');
+                await localDB.appSettings.delete('sop_pdf_meta');
+            }
+        } else {
+            try {
+                localStorage.setItem('sidimas_sop_pdf_data', pendingSopPdfData);
+            } catch (eQuota) {
+                console.warn('[SiDiMAS] localStorage quota penuh untuk base64 data, mengandalkan IndexedDB/Cloud:', eQuota);
+            }
+            localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(pendingSopPdfMeta));
         }
-        localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(pendingSopPdfMeta));
 
-        // 5. Simpan ke Dexie IndexedDB jika tersedia (Kapasitas besar, aman dari QuotaExceededError)
-        if (typeof localDB !== 'undefined' && localDB.appSettings) {
+        // Salinan lokal hanya digunakan mode offline; browser online berbagi dokumen dari Drive.
+        if (!onlineWeb && typeof localDB !== 'undefined' && localDB.appSettings) {
             try {
                 await localDB.appSettings.put({ id: 'sop_pdf_data', data: pendingSopPdfData });
                 await localDB.appSettings.put({ id: 'sop_pdf_meta', data: pendingSopPdfMeta });
@@ -652,6 +740,10 @@ window.saveSopPdfFile = async function () {
         finishSaveSop();
     } catch (saveError) {
         console.error('[SiDiMAS] Error saat menyimpan SOP:', saveError);
+        if (isOnlineWebSop()) {
+            Swal.fire('Gagal Menyimpan ke Cloud', saveError.message || String(saveError), 'error');
+            return;
+        }
         // Fallback darurat: pastikan metadata tetap tersimpan
         try {
             try { localStorage.setItem('sidimas_sop_pdf_data', pendingSopPdfData); } catch (_) { }
@@ -711,10 +803,19 @@ window.hapusSopPdf = function () {
                     await window.sidimas.dbDelete('appSettings', 'sop_pdf_meta');
                     await window.sidimas.dbDelete('appSettings', 'sop_pdf_local_path');
                 } catch (_) { }
-            } else if (typeof isAppOnline === 'function' && isAppOnline()) {
+            } else if (isOnlineWebSop()) {
                 try {
-                    await apiCall('deleteSopPdf');
-                } catch (_) { }
+                    const response = await apiCall('deleteSopPdf');
+                    if (!response || response.success !== true) {
+                        throw new Error(response && response.message || 'Server gagal menghapus dokumen SOP.');
+                    }
+                    onlineCloudSopInfo = { url: '', data: '', localPath: '', meta: null, hasDoc: false };
+                    onlineCloudSopLoaded = true;
+                    onlineCloudSopError = '';
+                } catch (error) {
+                    Swal.fire('Gagal Menghapus SOP', error.message || String(error), 'error');
+                    return;
+                }
             }
 
             localStorage.removeItem('sidimas_sop_pdf_data');
@@ -764,6 +865,12 @@ window.hapusSopPdf = function () {
 
 window.getActiveSopUrl = function () {
     const info = (typeof getStoredSopInfo === 'function') ? getStoredSopInfo() : {};
+
+    if (isOnlineWebSop()) {
+        return onlineCloudSopLoaded && onlineCloudSopInfo
+            ? onlineCloudSopInfo.url || null
+            : null;
+    }
 
     // 1. Cek data base64 lokal jika tersedia
     const customData = info.data || localStorage.getItem('sidimas_sop_pdf_data');
@@ -831,9 +938,13 @@ window.previewSopPdf = async function () {
         } catch (_) { }
     }
 
-    // Jika di HP / browser baru dan URL belum tersimpan, tarik langsung dari Google Drive
+    // Browser online selalu mengambil alamat SOP terbaru dari sumber cloud.
+    if (isOnlineWebSop() && typeof syncSopTwoWay === 'function') {
+        await syncSopTwoWay();
+    }
+
     let pdfUrl = getActiveSopUrl();
-    if (!pdfUrl && isOnline && typeof syncSopTwoWay === 'function') {
+    if (!pdfUrl && isOnline && typeof window.sidimas !== 'undefined' && typeof syncSopTwoWay === 'function') {
         try {
             await syncSopTwoWay();
             pdfUrl = getActiveSopUrl();
@@ -841,6 +952,10 @@ window.previewSopPdf = async function () {
     }
 
     if (!pdfUrl) {
+        if (isOnlineWebSop() && onlineCloudSopError) {
+            Swal.fire('SOP Cloud Tidak Dapat Diakses', onlineCloudSopError, 'error');
+            return;
+        }
         Swal.fire({
             icon: 'info',
             title: 'Belum Ada Dokumen SOP',
@@ -1163,4 +1278,3 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (_) { }
     }, 1200);
 });
-
