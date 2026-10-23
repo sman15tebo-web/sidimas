@@ -11,9 +11,9 @@
  * ============================================================
  */
 
-const DEFAULT_SOP_WORD_PATH = './Draft_SOP_Persuratan_Sekolah.docx';
-const DEFAULT_SOP_WORD_FILENAME = 'Draft_SOP_Persuratan_Sekolah.docx';
-const DEFAULT_SOP_DEFAULT_PDF = './SOP Persuratan SMAN 15 Tebo.pdf';
+const DEFAULT_SOP_WORD_PATH = './Draft_SOP_Persuratan_Sekolah.doc';
+const DEFAULT_SOP_WORD_FILENAME = 'Draft_SOP_Persuratan_Sekolah.doc';
+const DEFAULT_SOP_DEFAULT_PDF = './SOP Persuratan SMAN 15 Tebo OK.pdf';
 
 const DEFAULT_DASAR_HUKUM_SIDIMAS = [
     {
@@ -298,36 +298,34 @@ window.syncSopTwoWay = async function () {
         const hasOnline = Boolean(onlineRes && onlineRes.hasCustom && (onlineRes.url || onlineRes.fileId));
 
         // ==============================================================
-        // KASUS 1: Di OFFLINE ADA, di ONLINE GOOGLE DRIVE BELUM ADA
-        // -> Otomatis UPLOAD dari offline laptop ke Google Drive induk!
+        // SINKRONISASI STATUS CLOUD GOOGLE DRIVE
         // ==============================================================
-        if (hasOffline && !hasOnline) {
-            console.log('[SiDiMAS Sync SOP] SOP ada di offline namun belum ada di Drive induk. Mengunggah ke Google Drive...');
-            const uploadRes = await apiCall('uploadSopPdf', {
-                fileDataUrl: offlineData,
-                filename: (offlineMeta && offlineMeta.name) || 'SOP_Persuratan_Resmi.pdf'
-            });
-            if (uploadRes && uploadRes.success && uploadRes.url) {
-                let previewUrl = uploadRes.previewUrl || uploadRes.url;
-                if (previewUrl.includes('drive.google.com/file/d/')) {
-                    const m = previewUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-                    if (m && m[1]) previewUrl = `https://drive.google.com/file/d/${m[1]}/preview`;
-                }
-                localStorage.setItem('sidimas_sop_pdf_url', previewUrl);
-                if (uploadRes.meta) {
-                    localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(uploadRes.meta));
-                }
-                console.log('✅ [SiDiMAS Sync SOP] Berhasil mengunggah dokumen SOP ke Google Drive induk:', previewUrl);
-                updateSopTabUI();
-                return { action: 'uploaded_to_drive', url: previewUrl };
-            }
-        }
+        if (!hasOnline) {
+            // Jika dokumen tidak ditemukan di Drive (belum ada atau sengaja dihapus oleh user),
+            // hapus metadata SOP kustom dari cache lokal agar konsisten di semua perangkat (HP, Laptop).
+            // TIDAK BOLEH auto-upload diam-diam di background agar tidak membanjiri Drive dengan file ganda.
+            console.log('[SiDiMAS Sync SOP] Tidak ada dokumen SOP kustom di Google Drive.');
+            localStorage.removeItem('sidimas_sop_pdf_url');
+            localStorage.removeItem('sidimas_sop_pdf_meta');
+            try {
+                const curSettings = JSON.parse(localStorage.getItem('sidimas_settings') || '{}');
+                delete curSettings.sop_pdf_url;
+                delete curSettings.sop_pdf_preview_url;
+                delete curSettings.sop_pdf_download_url;
+                delete curSettings.sop_pdf_file_id;
+                delete curSettings.sop_pdf_name;
+                delete curSettings.sop_pdf_filename;
+                delete curSettings.sop_pdf_size;
+                delete curSettings.sop_pdf_updated;
+                delete curSettings.sop_pdf_meta;
+                localStorage.setItem('sidimas_settings', JSON.stringify(curSettings));
+            } catch (_) { }
 
-        // ==============================================================
-        // KASUS 2: Di ONLINE GOOGLE DRIVE SUDAH ADA
-        // -> Simpan URL & metadata ke sistem lokal web & desktop!
-        // ==============================================================
-        else if (hasOnline) {
+            updateSopTabUI();
+            return { action: 'cloud_empty' };
+        } else {
+            // Dokumen SOP ditemukan di Google Drive -> Simpan tautan & metadatanya ke browser HP / Laptop
+
             let targetUrl = onlineRes.previewUrl || onlineRes.url || '';
             if (targetUrl.includes('drive.google.com/file/d/')) {
                 const m = targetUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -796,7 +794,9 @@ window.downloadTemplateWord = function () {
 
 
 window.previewSopPdf = async function () {
-    // Pastikan data terbaru terbaca jika belum ada di cache
+    const isOnline = (typeof isAppOnline === 'function') ? isAppOnline() : navigator.onLine;
+
+    // Pastikan data terbaru terbaca jika belum ada di cache Electron
     if (!localStorage.getItem('sidimas_sop_pdf_data') && typeof window.sidimas !== 'undefined') {
         try {
             const rowData = await window.sidimas.dbGet('appSettings', 'sop_pdf_data');
@@ -812,7 +812,15 @@ window.previewSopPdf = async function () {
         } catch (_) { }
     }
 
-    const pdfUrl = getActiveSopUrl();
+    // Jika di HP / browser baru dan URL belum tersimpan, tarik langsung dari Google Drive
+    let pdfUrl = getActiveSopUrl();
+    if ((!pdfUrl || pdfUrl === DEFAULT_SOP_DEFAULT_PDF) && isOnline && typeof syncSopTwoWay === 'function') {
+        try {
+            await syncSopTwoWay();
+            pdfUrl = getActiveSopUrl();
+        } catch (_) { }
+    }
+
     if (!pdfUrl) {
         downloadTemplateWord();
         return;
@@ -820,8 +828,22 @@ window.previewSopPdf = async function () {
 
     const modalEl = document.getElementById('modalPreviewSOP');
     const iframe = document.getElementById('iframeSOPViewer');
+    const btnBukaTab = document.getElementById('btnBukaTabSop');
+    const loaderEl = document.getElementById('sopIframeLoader');
+
+    if (btnBukaTab) {
+        btnBukaTab.href = pdfUrl;
+    }
+    if (loaderEl) {
+        loaderEl.style.display = 'block';
+    }
+
     if (modalEl && iframe) {
-        iframe.src = pdfUrl;
+        if (iframe.src !== pdfUrl) {
+            iframe.src = pdfUrl;
+        } else if (loaderEl) {
+            loaderEl.style.display = 'none';
+        }
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
     } else if (typeof openFilePreviewModal === 'function') {
@@ -1092,7 +1114,9 @@ window.resetDasarHukumDefault = function () {
     });
 };
 
-// Inisialisasi otomatis jika tab dibuka
+window.updateSopTabUI = updateSopTabUI;
+
+// Inisialisasi otomatis jika tab dibuka atau halaman dimuat
 document.addEventListener('DOMContentLoaded', function () {
     const sopTabBtn = document.getElementById('sop-hukum-tab');
     if (sopTabBtn) {
@@ -1100,4 +1124,16 @@ document.addEventListener('DOMContentLoaded', function () {
             loadSOPHukumTab();
         });
     }
+
+    // Inisialisasi metadata SOP dan sinkronisasi otomatis dari cloud saat online
+    setTimeout(async () => {
+        try {
+            updateSopTabUI();
+            const isOnline = (typeof isAppOnline === 'function') ? isAppOnline() : navigator.onLine;
+            if (isOnline && typeof syncSopTwoWay === 'function') {
+                await syncSopTwoWay();
+            }
+        } catch (_) { }
+    }, 1200);
 });
+
