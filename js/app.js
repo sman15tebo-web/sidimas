@@ -60,7 +60,14 @@ $(document).ready(function () {
 function renderAppAttributes(s) {
     if (!s) return;
     try {
-        localStorage.setItem('sidimas_settings', JSON.stringify(s));
+        const settingsCache = { ...s };
+        if (typeof isElectron === 'undefined' || !isElectron) {
+            Object.keys(settingsCache).filter(key => key.startsWith('sop_pdf_')).forEach(key => delete settingsCache[key]);
+            localStorage.removeItem('sidimas_sop_pdf_url');
+            localStorage.removeItem('sidimas_sop_pdf_meta');
+            localStorage.removeItem('sidimas_sop_pdf_data');
+        }
+        localStorage.setItem('sidimas_settings', JSON.stringify(settingsCache));
     } catch (e) {
         console.warn('[SiDiMAS] localStorage quota limit reached:', e.message);
     }
@@ -135,8 +142,8 @@ function renderAppAttributes(s) {
     if (!$('input[name="ttdPangkat"]').val()) $('input[name="ttdPangkat"]').val(s.kepsek_pangkat);
     $('#inpKodeSekolah').val(s.kode_lembaga || '');
 
-    // Sinkronisasi Dokumen SOP Persuratan jika ada di pengaturan
-    if (s.sop_pdf_url || s.sop_pdf_file_id) {
+    // SOP web diambil langsung dari cloud; hanya desktop yang menyimpan metadata lokal.
+    if (typeof isElectron !== 'undefined' && isElectron && (s.sop_pdf_url || s.sop_pdf_file_id)) {
         const sopUrl = s.sop_pdf_preview_url || s.sop_pdf_url || (s.sop_pdf_file_id ? `https://drive.google.com/file/d/${s.sop_pdf_file_id}/preview` : '');
         if (sopUrl) localStorage.setItem('sidimas_sop_pdf_url', sopUrl);
         if (s.sop_pdf_meta) {
