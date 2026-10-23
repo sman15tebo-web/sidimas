@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SiDiMAS</title>
     <link rel="icon" type="image/png" href="./icon.png">
 
@@ -95,7 +95,7 @@
         onclick="window.scrollTo({top:0,behavior:'smooth'})"><i class="fas fa-arrow-up"></i></button>
 
     <!-- ZOOM CONTROLS (Khusus Desktop/Offline) -->
-    <div id="zoomControls" class="d-none d-lg-flex flex-column gap-2"
+    <div id="zoomControls" class="d-none d-lg-flex flex-column gap-2 offline-only"
         style="position: fixed; bottom: 90px; right: 20px; z-index: 9999; opacity: 0.8;">
         <button class="btn btn-dark btn-sm rounded-circle shadow" style="width: 38px; height: 38px;"
             onclick="zoomApp(0.1)" title="Zoom In (Perbesar)"><i class="fas fa-search-plus"></i></button>
@@ -106,26 +106,12 @@
     </div>
 
     <script>
-        let currentZoomLevel = 0;
         function zoomApp(step) {
-            // Hindari zoom global ke body karena merusak layout modal, sidebar, dan overlay.
-            currentZoomLevel = 0;
-            document.body.style.zoom = 1.0;
-            document.body.style.transform = 'none';
-            document.body.style.transformOrigin = 'top left';
+            if (!window.sidimas || typeof window.sidimas.changeZoom !== 'function') return;
+            window.sidimas.changeZoom(step).catch(error => {
+                console.error('[SiDiMAS] Gagal mengubah zoom:', error);
+            });
         }
-
-        // Matikan shortcut zoom agar layout tetap stabil di desktop maupun browser.
-        document.addEventListener('keydown', function (event) {
-            if (event.ctrlKey) {
-                if (event.key === '=' || event.key === '+' || event.key === '-' || event.key === '0') {
-                    event.preventDefault();
-                    zoomApp(0);
-                }
-            }
-        });
-
-        setTimeout(() => zoomApp(0), 100);
     </script>
 
     <div id="view-login">
