@@ -72,8 +72,23 @@
             margin: 1.75rem auto;
         }
 
+        #modalPreviewSOP .modal-content {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-height: calc(100vh - 3.5rem);
+            overflow: hidden;
+        }
+
         .modal-sop-body {
             height: 78vh !important;
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow: hidden;
+        }
+
+        #iframeSOPViewer {
+            display: block;
         }
 
         @media (max-width: 768px) {
@@ -81,10 +96,54 @@
                 width: 98vw !important;
                 max-width: 98vw !important;
                 margin: 0.5rem auto !important;
+                height: calc(100vh - 1rem);
+                height: calc(100dvh - 1rem);
+                display: flex;
+                align-items: center;
+            }
+
+            #modalPreviewSOP .modal-content {
+                height: 100%;
+                max-height: 100%;
             }
 
             .modal-sop-body {
-                height: 84vh !important;
+                height: auto !important;
+            }
+
+            #modalPreviewSOP .modal-header {
+                flex: 0 0 auto;
+                padding: 0.5rem 0.75rem !important;
+            }
+
+            #modalPreviewSOP .modal-title {
+                font-size: 0.85rem;
+                line-height: 1.25;
+            }
+
+            #modalPreviewSOP .modal-footer {
+                flex: 0 0 auto;
+                gap: 0.4rem;
+                padding: 0.5rem 0.75rem !important;
+            }
+
+            #modalPreviewSOP .modal-footer > div {
+                display: grid !important;
+                grid-template-columns: 1.3fr 1.1fr 0.7fr;
+                flex: 1 1 100%;
+                gap: 0.3rem !important;
+            }
+
+            #modalPreviewSOP .modal-footer small {
+                display: none;
+            }
+
+            #modalPreviewSOP .modal-footer .btn {
+                min-width: 0;
+                padding: 0.35rem 0.2rem;
+                font-size: 0.68rem;
+                line-height: 1.2;
+                white-space: normal;
             }
         }
     </style>
