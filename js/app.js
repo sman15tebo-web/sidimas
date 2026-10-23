@@ -59,8 +59,8 @@ $(document).ready(function () {
 
 function renderAppAttributes(s) {
     if (!s) return;
+    const settingsCache = { ...s };
     try {
-        const settingsCache = { ...s };
         if (typeof isElectron === 'undefined' || !isElectron) {
             Object.keys(settingsCache).filter(key => key.startsWith('sop_pdf_')).forEach(key => delete settingsCache[key]);
             localStorage.removeItem('sidimas_sop_pdf_url');
@@ -132,8 +132,16 @@ function renderAppAttributes(s) {
     }
     const finalGasUrl = (s.link_exec && s.link_exec.trim() !== "") ? s.link_exec.trim() : defaultGasUrl;
     s.link_exec = finalGasUrl;
+    settingsCache.link_exec = finalGasUrl;
     API_URL = finalGasUrl;
-    try { localStorage.setItem('sidimas_api_url', finalGasUrl); } catch (e) { }
+    try {
+        localStorage.setItem('sidimas_api_url', finalGasUrl);
+        if (typeof isElectron === 'undefined' || !isElectron) {
+            localStorage.setItem(getSettingsCacheKey(finalGasUrl), JSON.stringify(settingsCache));
+        }
+    } catch (e) {
+        console.warn('[SiDiMAS] Gagal menyimpan cache pengaturan tenant:', e.message);
+    }
     $('#inLinkExec, #inApiUrl, #syncLinkExec').val(finalGasUrl);
 
 
@@ -160,11 +168,36 @@ function renderAppAttributes(s) {
                 url: sopUrl
             }));
         }
+
     }
     if (typeof updateSopTabUI === 'function') updateSopTabUI();
 
     // Sinkronisasi ke Live Pratinjau Kop Surat
     updateLiveKopPreview();
+}
+
+function getSettingsCacheKey(apiUrl) {
+    return `sidimas_settings_cache_${encodeURIComponent(apiUrl || '')}`;
+}
+
+function renderLandingBranding(settings) {
+    if (!settings) return;
+
+    if (settings.app_color) document.documentElement.style.setProperty('--main-color', settings.app_color);
+    if (settings.app_color2) document.documentElement.style.setProperty('--main-color2', settings.app_color2);
+    if (settings.app_color3) document.documentElement.style.setProperty('--main-color3', settings.app_color3);
+
+    const logo1 = settings.logo_instansi;
+    const logo2 = settings.logo_sekolah;
+    if (logo1 && logo1.length > 50) $('#logLogo1').attr('src', logo1).removeClass('hide').show();
+    if (logo2 && logo2.length > 50) $('#logLogo2').attr('src', logo2).removeClass('hide').show();
+    $('#logInstansi').text(settings.nama_instansi || '');
+    if (settings.nama_opd && settings.nama_opd.trim()) {
+        $('#logOpd').text(settings.nama_opd).removeClass('hide');
+    } else {
+        $('#logOpd').addClass('hide');
+    }
+    $('#logSekolah').text(settings.nama_sekolah || 'SISTEM DIGITAL ARSIP SURAT');
 }
 
 /**
@@ -267,9 +300,35 @@ $(document).ready(function () {
 });
 
 function renderSettingsFromCache() {
-    if (typeof isAppOnline === 'function' && isAppOnline()) return;
+    const online = typeof isAppOnline === 'function' && isAppOnline();
+    let cached = localStorage.getItem('sidimas_settings');
+    if (online) {
+        const tenantCache = localStorage.getItem(getSettingsCacheKey(API_URL));
+        if (tenantCache) {
+            cached = tenantCache;
+        } else if (cached) {
+            try {
+                const legacySettings = JSON.parse(cached);
+                if (legacySettings.link_exec === API_URL) {
+                    localStorage.setItem(getSettingsCacheKey(API_URL), cached);
+                } else {
+                    cached = null;
+                }
+            } catch (error) {
+                cached = null;
+            }
+        }
 
-    const cached = localStorage.getItem('sidimas_settings');
+        if (cached) {
+            try {
+                renderLandingBranding(JSON.parse(cached));
+            } catch (error) {
+                console.warn('[SiDiMAS] Cache branding tidak valid:', error);
+            }
+        }
+        return;
+    }
+
     if (cached) {
         try { renderAppAttributes(JSON.parse(cached)); } catch (e) { }
     } else {
