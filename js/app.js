@@ -135,6 +135,27 @@ function renderAppAttributes(s) {
     if (!$('input[name="ttdPangkat"]').val()) $('input[name="ttdPangkat"]').val(s.kepsek_pangkat);
     $('#inpKodeSekolah').val(s.kode_lembaga || '');
 
+    // Sinkronisasi Dokumen SOP Persuratan jika ada di pengaturan
+    if (s.sop_pdf_url || s.sop_pdf_file_id) {
+        const sopUrl = s.sop_pdf_preview_url || s.sop_pdf_url || (s.sop_pdf_file_id ? `https://drive.google.com/file/d/${s.sop_pdf_file_id}/preview` : '');
+        if (sopUrl) localStorage.setItem('sidimas_sop_pdf_url', sopUrl);
+        if (s.sop_pdf_meta) {
+            try {
+                const m = typeof s.sop_pdf_meta === 'string' ? JSON.parse(s.sop_pdf_meta) : s.sop_pdf_meta;
+                localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify(m));
+            } catch (_) { }
+        } else if (s.sop_pdf_name) {
+            localStorage.setItem('sidimas_sop_pdf_meta', JSON.stringify({
+                name: s.sop_pdf_name,
+                sizeText: s.sop_pdf_size || 'PDF',
+                updatedAt: s.sop_pdf_updated || 'Tersimpan di Cloud',
+                origin: 'cloud_drive',
+                url: sopUrl
+            }));
+        }
+    }
+    if (typeof updateSopTabUI === 'function') updateSopTabUI();
+
     // Sinkronisasi ke Live Pratinjau Kop Surat
     updateLiveKopPreview();
 }
@@ -393,4 +414,4 @@ function showLoadingTimer2(judul) {
 }
 
 function formatNomorUrut(input) { let val = input.value; if (val === "") return; input.value = String(val).padStart(3, '0'); }
-
+
