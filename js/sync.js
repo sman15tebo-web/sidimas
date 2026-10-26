@@ -335,8 +335,14 @@ async function syncToCloud() {
             if (typeof loadPegawai === 'function') loadPegawai();
             if (typeof loadSiswa === 'function') loadSiswa();
             // Sinkronisasi dokumen SOP dua arah (Google Drive induk <-> database SQLite laptop)
+            let sopSyncWarning = '';
             if (typeof syncSopTwoWay === 'function') {
-                try { await syncSopTwoWay(); } catch (_) { }
+                try {
+                    const sopResult = await syncSopTwoWay();
+                    if (sopResult?.success === false) sopSyncWarning = sopResult.message || 'File SOP belum berhasil diunduh.';
+                } catch (sopError) {
+                    sopSyncWarning = sopError.message || String(sopError);
+                }
             }
 
             const pendingCount = outcome.pendingQueue + outcome.pendingMasuk + outcome.pendingKeluar;
@@ -349,7 +355,9 @@ async function syncToCloud() {
             const pulledKeluarCount = Array.isArray(res.pulledKeluar) ? res.pulledKeluar.length : 0;
             const pulledSummary = `Surat Masuk: ${pulledMasukCount} data, Surat Keluar: ${pulledKeluarCount} data`;
 
-            if (res.pullWarning) {
+            if (sopSyncWarning) {
+                Swal.fire('Data Tersinkron, SOP Belum Terunduh', `${sentSummary}<br><br><b>Dokumen SOP:</b> ${sopSyncWarning}`, 'warning');
+            } else if (res.pullWarning) {
                 Swal.fire('Data Terkirim, Refresh Tertunda', `${sentSummary}<br><br>Data terbaru belum seluruhnya dimuat: ${res.pullWarning}`, 'warning');
             } else if (pendingCount) {
                 Swal.fire('Sinkronisasi Sebagian', `${sentSummary}<br><br>${pendingCount} item belum terkonfirmasi dan tetap pending di perangkat.`, 'warning');
