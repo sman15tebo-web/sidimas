@@ -153,10 +153,9 @@ function renderAppAttributes(s) {
     if (!$('input[name="ttdPangkat"]').val()) $('input[name="ttdPangkat"]').val(s.kepsek_pangkat);
     $('#inpKodeSekolah').val(s.kode_lembaga || '');
 
-    // SOP web diambil langsung dari cloud; hanya desktop yang menyimpan metadata lokal.
+    // Desktop hanya memakai salinan SOP lokal; tautan Drive tidak dipakai sebagai fallback.
     if (typeof isElectron !== 'undefined' && isElectron && (s.sop_pdf_url || s.sop_pdf_file_id)) {
-        const sopUrl = s.sop_pdf_preview_url || s.sop_pdf_url || (s.sop_pdf_file_id ? `https://drive.google.com/file/d/${s.sop_pdf_file_id}/preview` : '');
-        if (sopUrl) localStorage.setItem('sidimas_sop_pdf_url', sopUrl);
+        localStorage.removeItem('sidimas_sop_pdf_url');
         if (s.sop_pdf_meta) {
             try {
                 const m = typeof s.sop_pdf_meta === 'string' ? JSON.parse(s.sop_pdf_meta) : s.sop_pdf_meta;
@@ -167,8 +166,7 @@ function renderAppAttributes(s) {
                 name: s.sop_pdf_name,
                 sizeText: s.sop_pdf_size || 'PDF',
                 updatedAt: s.sop_pdf_updated || 'Tersimpan di Cloud',
-                origin: 'cloud_drive',
-                url: sopUrl
+                origin: 'cloud_drive'
             }));
         }
 
